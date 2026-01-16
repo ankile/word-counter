@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Word Counter
 
-## Getting Started
+A web app to photograph book pages, extract text via OCR, and count words. Designed as a companion metric for tracking reading progress.
 
-First, run the development server:
+## Features
+
+- **Book Management** - Create and organize books
+- **Photo Upload** - Drag & drop or select multiple page photos (mobile camera supported)
+- **OCR Processing** - Google Cloud Vision extracts text from images
+- **Word Counting** - Per-page and total word counts with averages
+- **OCR Visualization** - Toggle bounding box overlay to see what was detected
+- **Lightbox View** - Click any thumbnail to view full-size with OCR overlay
+
+## Tech Stack
+
+- **Frontend**: Next.js 16 + React + Tailwind CSS
+- **Backend**: Convex (database + file storage + serverless functions)
+- **OCR**: Google Cloud Vision API
+
+## Setup
+
+### Prerequisites
+
+- Node.js 18+
+- Google Cloud account with Vision API enabled
+- Convex account (free tier works)
+
+### 1. Clone and Install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/ankile/word-counter.git
+cd word-counter
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Set up Convex
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npx convex dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This will prompt you to log in to Convex and create a project. It automatically adds `NEXT_PUBLIC_CONVEX_URL` to `.env.local`.
 
-## Learn More
+### 3. Add Google Cloud Vision API Key
 
-To learn more about Next.js, take a look at the following resources:
+Get an API key from [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with Vision API enabled.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Add it to Convex:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npx convex env set GCP_VISION_API_KEY "your-api-key-here"
+```
 
-## Deploy on Vercel
+### 4. Run Development Server
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+In two terminals:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# Terminal 1: Convex backend
+npx convex dev
+
+# Terminal 2: Next.js frontend
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+## Usage
+
+1. Click **+ New Book** to create a book
+2. Click on the book to open it
+3. Upload photos of book pages (drag & drop or click to select)
+4. Watch OCR process each page in real-time
+5. View word counts per page and total for the book
+6. Click **Show OCR** to visualize what was detected
+7. Click any thumbnail to view full-size
+
+## Text Cleaning
+
+The OCR output is cleaned with light heuristics:
+- Removes standalone page numbers
+- Removes short all-caps lines (headers)
+- Rejoins hyphenated words at line breaks
