@@ -31,8 +31,19 @@ interface FirebaseBook {
   isbn?: string;
   finished?: boolean;
   pagesRead?: number;
-  createdAt?: { seconds: number; nanoseconds: number };
-  updatedAt?: { seconds: number; nanoseconds: number };
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+function timestampToMs(ts: unknown): number | undefined {
+  if (!ts) return undefined;
+  if (typeof ts === "object" && ts !== null && "_seconds" in ts) {
+    return (ts as { _seconds: number })._seconds * 1000;
+  }
+  if (typeof ts === "object" && ts !== null && "seconds" in ts) {
+    return (ts as { seconds: number }).seconds * 1000;
+  }
+  return undefined;
 }
 
 export const listFirebaseBooks = action({
@@ -56,8 +67,8 @@ export const listFirebaseBooks = action({
         isbn: data.isbn,
         finished: data.finished,
         pagesRead: data.pagesRead,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
+        createdAt: timestampToMs(data.createdAt),
+        updatedAt: timestampToMs(data.updatedAt),
       });
     });
 
