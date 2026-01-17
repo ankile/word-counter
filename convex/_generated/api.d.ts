@@ -9,6 +9,7 @@
  */
 
 import type * as books from "../books.js";
+import type * as firebase from "../firebase.js";
 import type * as ocr from "../ocr.js";
 import type * as ocrAction from "../ocrAction.js";
 import type * as pages from "../pages.js";
@@ -22,6 +23,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   books: typeof books;
+  firebase: typeof firebase;
   ocr: typeof ocr;
   ocrAction: typeof ocrAction;
   pages: typeof pages;

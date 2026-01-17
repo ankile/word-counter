@@ -118,3 +118,42 @@ export const remove = mutation({
     await ctx.db.delete(args.id);
   },
 });
+
+export const importFromFirebase = mutation({
+  args: {
+    firebaseId: v.string(),
+    firebaseUserId: v.string(),
+    title: v.string(),
+    author: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check if book with this Firebase ID already exists
+    const existing = await ctx.db
+      .query("books")
+      .withIndex("by_firebase_id", (q) => q.eq("firebaseId", args.firebaseId))
+      .first();
+
+    if (existing) {
+      return existing._id;
+    }
+
+    const bookId = await ctx.db.insert("books", {
+      title: args.title,
+      author: args.author,
+      createdAt: Date.now(),
+      firebaseId: args.firebaseId,
+      firebaseUserId: args.firebaseUserId,
+    });
+    return bookId;
+  },
+});
+
+export const getByFirebaseId = query({
+  args: { firebaseId: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("books")
+      .withIndex("by_firebase_id", (q) => q.eq("firebaseId", args.firebaseId))
+      .first();
+  },
+});

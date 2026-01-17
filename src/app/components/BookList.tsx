@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { useState } from "react";
+import { ImportBooks } from "./ImportBooks";
 
 export function BookList() {
   const books = useQuery(api.books.list);
@@ -68,6 +69,8 @@ export function BookList() {
           </button>
         </form>
       )}
+
+      <ImportBooks />
 
       {books.length === 0 ? (
         <div className="text-center py-12 text-gray-500">

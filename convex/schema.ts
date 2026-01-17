@@ -4,8 +4,12 @@ import { v } from "convex/values";
 export default defineSchema({
   books: defineTable({
     title: v.string(),
+    author: v.optional(v.string()),
     createdAt: v.number(),
-  }),
+    // Firebase integration fields
+    firebaseId: v.optional(v.string()),
+    firebaseUserId: v.optional(v.string()),
+  }).index("by_firebase_id", ["firebaseId"]),
 
   pages: defineTable({
     bookId: v.id("books"),
