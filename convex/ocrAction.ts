@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { analyzeText } from "./textAnalysis";
 
 function cleanOcrText(rawText: string): string {
   let text = rawText;
@@ -136,12 +137,25 @@ export const processPage = action({
       })),
     }));
 
+    // Compute readability metrics
+    const metrics = analyzeText(extractedText);
+    const readability = {
+      sentenceCount: metrics.sentenceCount,
+      syllableCount: metrics.syllableCount,
+      avgWordsPerSentence: metrics.avgWordsPerSentence,
+      avgSyllablesPerWord: metrics.avgSyllablesPerWord,
+      fleschReadingEase: metrics.fleschReadingEase,
+      fleschKincaidGrade: metrics.fleschKincaidGrade,
+      readingLevel: metrics.readingLevel,
+    };
+
     await ctx.runMutation(internal.ocr.updatePageStatus, {
       id: args.pageId,
       status: "done",
       extractedText,
       wordCount,
       boundingBoxes,
+      readability,
     });
   },
 });

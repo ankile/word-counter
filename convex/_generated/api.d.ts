@@ -12,6 +12,7 @@ import type * as books from "../books.js";
 import type * as ocr from "../ocr.js";
 import type * as ocrAction from "../ocrAction.js";
 import type * as pages from "../pages.js";
+import type * as textAnalysis from "../textAnalysis.js";
 
 import type {
   ApiFromModules,
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   ocr: typeof ocr;
   ocrAction: typeof ocrAction;
   pages: typeof pages;
+  textAnalysis: typeof textAnalysis;
 }>;
 
 /**

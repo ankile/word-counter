@@ -33,6 +33,17 @@ export const updatePageStatus = internalMutation({
         })
       )
     ),
+    readability: v.optional(
+      v.object({
+        sentenceCount: v.number(),
+        syllableCount: v.number(),
+        avgWordsPerSentence: v.number(),
+        avgSyllablesPerWord: v.number(),
+        fleschReadingEase: v.number(),
+        fleschKincaidGrade: v.number(),
+        readingLevel: v.string(),
+      })
+    ),
   },
   handler: async (ctx, args) => {
     const { id, ...updates } = args;

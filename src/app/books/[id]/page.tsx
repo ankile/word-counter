@@ -56,6 +56,32 @@ export default function BookPage({ params }: BookPageProps) {
               <> &bull; {Math.round(book.totalWordCount / book.pageCount)} avg/page</>
             )}
           </p>
+          {book.avgReadability && (
+            <div className="mt-3 p-3 bg-white rounded-lg border">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Readability</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <div className="text-gray-500 text-xs">Grade Level</div>
+                  <div className="font-medium">{book.avgReadability.fleschKincaidGrade}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 text-xs">Reading Ease</div>
+                  <div className="font-medium">{book.avgReadability.fleschReadingEase}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 text-xs">Words/Sentence</div>
+                  <div className="font-medium">{book.avgReadability.avgWordsPerSentence}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500 text-xs">Syllables/Word</div>
+                  <div className="font-medium">{book.avgReadability.avgSyllablesPerWord}</div>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-gray-500">
+                {book.avgReadability.readingLevel}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">

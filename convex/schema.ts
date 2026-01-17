@@ -35,5 +35,17 @@ export default defineSchema({
         })
       )
     ),
+    // Readability metrics
+    readability: v.optional(
+      v.object({
+        sentenceCount: v.number(),
+        syllableCount: v.number(),
+        avgWordsPerSentence: v.number(),
+        avgSyllablesPerWord: v.number(),
+        fleschReadingEase: v.number(),
+        fleschKincaidGrade: v.number(),
+        readingLevel: v.string(),
+      })
+    ),
   }).index("by_book", ["bookId"]),
 });

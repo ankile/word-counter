@@ -205,6 +205,18 @@ export function PageCard({ page }: PageCardProps) {
             )}
           </div>
 
+          {page.status === "done" && page.readability && (
+            <div className="text-xs text-gray-500 mb-2">
+              <span title={`Flesch Reading Ease: ${page.readability.fleschReadingEase}`}>
+                Grade {page.readability.fleschKincaidGrade}
+              </span>
+              <span className="mx-1">&bull;</span>
+              <span title={page.readability.readingLevel}>
+                {page.readability.fleschReadingEase.toFixed(0)} ease
+              </span>
+            </div>
+          )}
+
           {page.status === "error" && page.error && (
             <p className="text-xs text-red-600 mb-2 truncate" title={page.error}>
               {page.error}
