@@ -13,16 +13,17 @@ interface FirebaseBook {
   finished?: boolean;
 }
 
+// Default user ID for lars.ankile@gmail.com - will be replaced with proper auth
+const DEFAULT_USER_ID = "1Cf0CaNfgnVSvTrF5dYjzRd9Xri2";
+
 export function ImportBooks() {
   const [isOpen, setIsOpen] = useState(false);
-  const [userId, setUserId] = useState("");
   const [firebaseBooks, setFirebaseBooks] = useState<FirebaseBook[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState<Set<string>>(new Set());
 
   const listFirebaseBooks = useAction(api.firebase.listFirebaseBooks);
-  const listFirebaseUsers = useAction(api.firebase.listFirebaseUsers);
   const importFromFirebase = useMutation(api.books.importFromFirebase);
   const books = useQuery(api.books.list);
 
@@ -30,24 +31,9 @@ export function ImportBooks() {
     books?.filter((b) => b.firebaseId).map((b) => b.firebaseId) || []
   );
 
-  const handleFetchUsers = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const users = await listFirebaseUsers();
-      if (users.length === 1) {
-        setUserId(users[0].id);
-        await fetchBooksForUser(users[0].id);
-      } else if (users.length > 1) {
-        setError(`Found ${users.length} users. Please enter a user ID.`);
-      } else {
-        setError("No users found in Firebase.");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch users");
-    } finally {
-      setLoading(false);
-    }
+  const handleOpen = async () => {
+    setIsOpen(true);
+    await fetchBooksForUser(DEFAULT_USER_ID);
   };
 
   const fetchBooksForUser = async (uid: string) => {
@@ -66,20 +52,13 @@ export function ImportBooks() {
     }
   };
 
-  const handleFetchBooks = async () => {
-    if (!userId.trim()) {
-      setError("Please enter a user ID");
-      return;
-    }
-    await fetchBooksForUser(userId.trim());
-  };
 
   const handleImport = async (book: FirebaseBook) => {
     setImporting((prev) => new Set(prev).add(book.id));
     try {
       await importFromFirebase({
         firebaseId: book.id,
-        firebaseUserId: userId,
+        firebaseUserId: DEFAULT_USER_ID,
         title: book.title,
         author: book.author,
       });
@@ -106,10 +85,7 @@ export function ImportBooks() {
   if (!isOpen) {
     return (
       <button
-        onClick={() => {
-          setIsOpen(true);
-          handleFetchUsers();
-        }}
+        onClick={handleOpen}
         className="text-sm text-blue-600 hover:text-blue-800"
       >
         Import from Book Tracker
@@ -135,22 +111,9 @@ export function ImportBooks() {
         </div>
       )}
 
-      <div className="flex gap-2 mb-4">
-        <input
-          type="text"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-          placeholder="Firebase User ID"
-          className="flex-1 px-3 py-2 border rounded text-sm"
-        />
-        <button
-          onClick={handleFetchBooks}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? "Loading..." : "Fetch Books"}
-        </button>
-      </div>
+      {loading && (
+        <div className="text-gray-500 text-sm mb-3">Loading books...</div>
+      )}
 
       {firebaseBooks.length > 0 && (
         <>
