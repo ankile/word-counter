@@ -72,10 +72,13 @@ export const get = query({
       };
     }
 
+    const processedCount = pages.filter((p) => p.status === "done").length;
+
     return {
       ...book,
       totalWordCount,
       pageCount: pages.length,
+      processedCount,
       avgReadability,
     };
   },

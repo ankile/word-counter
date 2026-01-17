@@ -106,11 +106,11 @@ export function PageCard({ page }: PageCardProps) {
     }
   };
 
-  const statusColors = {
-    pending: "bg-yellow-100 text-yellow-800",
-    processing: "bg-blue-100 text-blue-800",
-    done: "bg-green-100 text-green-800",
-    error: "bg-red-100 text-red-800",
+  const statusConfig = {
+    pending: { bg: "bg-amber-100", text: "text-amber-700", label: "Pending" },
+    processing: { bg: "bg-blue-100", text: "text-blue-700", label: "Processing" },
+    done: { bg: "bg-green-100", text: "text-green-700", label: "Done" },
+    error: { bg: "bg-red-100", text: "text-red-700", label: "Error" },
   };
 
   const scaleBox = (
@@ -133,6 +133,7 @@ export function PageCard({ page }: PageCardProps) {
   };
 
   const hasBoundingBoxes = page.boundingBoxes && page.boundingBoxes.length > 0;
+  const status = statusConfig[page.status];
 
   const renderOverlay = (dims: { natural: { width: number; height: number }; display: { width: number; height: number } }) => (
     <svg
@@ -149,8 +150,8 @@ export function PageCard({ page }: PageCardProps) {
             y={rect.y}
             width={rect.width}
             height={rect.height}
-            fill="rgba(59, 130, 246, 0.2)"
-            stroke="rgba(59, 130, 246, 0.8)"
+            fill="rgba(59, 130, 246, 0.15)"
+            stroke="rgba(59, 130, 246, 0.6)"
             strokeWidth="1"
           />
         );
@@ -160,8 +161,9 @@ export function PageCard({ page }: PageCardProps) {
 
   return (
     <>
-      <div className="border rounded-lg overflow-hidden bg-white">
-        <div className="aspect-[3/4] relative bg-gray-100">
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+        {/* Image area */}
+        <div className="aspect-[3/4] relative bg-slate-100">
           {page.imageUrl && (
             <>
               <img
@@ -174,16 +176,18 @@ export function PageCard({ page }: PageCardProps) {
               {showOverlay && hasBoundingBoxes && imageDimensions && renderOverlay(imageDimensions)}
             </>
           )}
-          <div className="absolute top-2 left-2 bg-black/60 text-white text-sm px-2 py-1 rounded">
-            #{page.pageNumber}
+          {/* Page number badge */}
+          <div className="absolute top-3 left-3 bg-slate-900/70 text-white text-xs font-medium px-2 py-1 rounded-md">
+            Page {page.pageNumber}
           </div>
+          {/* OCR toggle */}
           {hasBoundingBoxes && (
             <button
               onClick={() => setShowOverlay(!showOverlay)}
-              className={`absolute top-2 right-2 text-xs px-2 py-1 rounded transition-colors ${
+              className={`absolute top-3 right-3 text-xs font-medium px-2.5 py-1 rounded-md transition-colors ${
                 showOverlay
                   ? "bg-blue-600 text-white"
-                  : "bg-white/80 text-gray-700 hover:bg-white"
+                  : "bg-white/90 text-slate-700 hover:bg-white"
               }`}
             >
               {showOverlay ? "Hide OCR" : "Show OCR"}
@@ -191,66 +195,70 @@ export function PageCard({ page }: PageCardProps) {
           )}
         </div>
 
-        <div className="p-3">
-          <div className="flex items-center justify-between mb-2">
-            <span
-              className={`text-xs px-2 py-1 rounded-full ${statusColors[page.status]}`}
-            >
-              {page.status}
+        {/* Info area */}
+        <div className="p-4">
+          {/* Status and word count */}
+          <div className="flex items-center justify-between mb-3">
+            <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.bg} ${status.text}`}>
+              {status.label}
             </span>
             {page.status === "done" && page.wordCount !== undefined && (
-              <span className="text-sm font-medium">
+              <span className="text-sm font-semibold text-slate-900">
                 {page.wordCount.toLocaleString()} words
               </span>
             )}
           </div>
 
+          {/* Readability */}
           {page.status === "done" && page.readability && (
-            <div className="text-xs text-gray-500 mb-2">
-              <span title={`Flesch Reading Ease: ${page.readability.fleschReadingEase}`}>
+            <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
+              <span title={`Flesch-Kincaid Grade Level`}>
                 Grade {page.readability.fleschKincaidGrade}
               </span>
-              <span className="mx-1">&bull;</span>
+              <span className="text-slate-300">|</span>
               <span title={page.readability.readingLevel}>
-                {page.readability.fleschReadingEase.toFixed(0)} ease
+                Ease: {page.readability.fleschReadingEase.toFixed(0)}
               </span>
             </div>
           )}
 
+          {/* Error message */}
           {page.status === "error" && page.error && (
-            <p className="text-xs text-red-600 mb-2 truncate" title={page.error}>
+            <p className="text-xs text-red-600 mb-3 truncate" title={page.error}>
               {page.error}
             </p>
           )}
 
+          {/* Extracted text toggle */}
           {page.status === "done" && page.extractedText && (
-            <div>
+            <div className="mb-3">
               <button
                 onClick={() => setShowText(!showText)}
-                className="text-xs text-blue-600 hover:underline mb-2"
+                className="text-xs font-medium text-blue-600 hover:text-blue-700"
               >
-                {showText ? "Hide text" : "Show text"}
+                {showText ? "Hide extracted text" : "Show extracted text"}
               </button>
               {showText && (
-                <pre className="text-xs bg-gray-50 p-2 rounded max-h-40 overflow-auto whitespace-pre-wrap">
+                <pre className="mt-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-lg max-h-40 overflow-auto whitespace-pre-wrap border border-slate-100">
                   {page.extractedText}
                 </pre>
               )}
             </div>
           )}
 
-          <div className="flex gap-2 mt-2">
+          {/* Actions */}
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
             {(page.status === "error" || page.status === "done") && (
               <button
                 onClick={handleReprocess}
-                className="text-xs text-blue-600 hover:text-blue-800"
+                className="text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors"
               >
                 Re-process
               </button>
             )}
             <button
               onClick={handleDelete}
-              className="text-xs text-red-600 hover:text-red-800"
+              className="text-xs font-medium text-slate-500 hover:text-red-600 transition-colors"
             >
               Delete
             </button>
@@ -261,11 +269,11 @@ export function PageCard({ page }: PageCardProps) {
       {/* Lightbox Modal */}
       {showLightbox && page.imageUrl && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
           onClick={() => setShowLightbox(false)}
         >
           <div
-            className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center"
+            className="relative max-w-5xl max-h-[90vh] w-full h-full flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative">
@@ -273,28 +281,37 @@ export function PageCard({ page }: PageCardProps) {
                 ref={lightboxImageRef}
                 src={page.imageUrl}
                 alt={`Page ${page.pageNumber}`}
-                className="max-w-full max-h-[85vh] object-contain"
+                className="max-w-full max-h-[85vh] object-contain rounded-lg"
               />
               {showOverlay && hasBoundingBoxes && lightboxDimensions && renderOverlay(lightboxDimensions)}
             </div>
+            {/* Close button */}
             <button
               onClick={() => setShowLightbox(false)}
-              className="absolute top-0 right-0 text-white text-2xl p-2 hover:bg-white/10 rounded"
+              className="absolute top-4 right-4 p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
             >
-              &times;
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
+            {/* OCR toggle in lightbox */}
             {hasBoundingBoxes && (
               <button
                 onClick={() => setShowOverlay(!showOverlay)}
-                className={`absolute top-0 left-0 text-sm px-3 py-2 rounded transition-colors ${
+                className={`absolute top-4 left-4 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${
                   showOverlay
                     ? "bg-blue-600 text-white"
-                    : "bg-white/20 text-white hover:bg-white/30"
+                    : "bg-white/10 text-white hover:bg-white/20"
                 }`}
               >
                 {showOverlay ? "Hide OCR" : "Show OCR"}
               </button>
             )}
+            {/* Page info in lightbox */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-4 py-2 rounded-lg">
+              Page {page.pageNumber}
+              {page.wordCount !== undefined && ` • ${page.wordCount.toLocaleString()} words`}
+            </div>
           </div>
         </div>
       )}

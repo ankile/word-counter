@@ -19,9 +19,14 @@ export default function BookPage({ params }: BookPageProps) {
 
   if (book === undefined) {
     return (
-      <main className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto py-8 px-4">
-          <div className="text-gray-500">Loading...</div>
+      <main className="min-h-screen flex flex-col">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+            <div className="animate-pulse h-6 w-32 bg-slate-200 rounded" />
+          </div>
+        </header>
+        <div className="flex-1 max-w-5xl mx-auto py-8 px-4 sm:px-6 w-full">
+          <div className="animate-pulse text-slate-400">Loading...</div>
         </div>
       </main>
     );
@@ -29,73 +34,132 @@ export default function BookPage({ params }: BookPageProps) {
 
   if (book === null) {
     return (
-      <main className="min-h-screen bg-gray-50">
-        <div className="max-w-4xl mx-auto py-8 px-4">
-          <div className="text-red-600">Book not found</div>
-          <Link href="/" className="text-blue-600 hover:underline">
-            Back to books
-          </Link>
+      <main className="min-h-screen flex flex-col">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+            <Link href="/" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
+              &larr; Back to books
+            </Link>
+          </div>
+        </header>
+        <div className="flex-1 max-w-5xl mx-auto py-8 px-4 sm:px-6 w-full">
+          <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+            <div className="text-red-600 font-medium">Book not found</div>
+            <Link href="/" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+              Return to library
+            </Link>
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto py-8 px-4">
-        <Link href="/" className="text-blue-600 hover:underline text-sm">
-          &larr; Back to books
-        </Link>
+    <main className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
+          <Link href="/" className="text-blue-600 hover:text-blue-700 text-sm font-medium inline-flex items-center gap-1">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to library
+          </Link>
+        </div>
+      </header>
 
-        <div className="mt-4 mb-6">
-          <h1 className="text-2xl font-bold">{book.title}</h1>
-          <p className="text-gray-600">
-            {book.totalWordCount.toLocaleString()} total words &bull;{" "}
-            {book.pageCount} pages
+      <div className="flex-1 max-w-5xl mx-auto py-8 px-4 sm:px-6 w-full">
+        {/* Book info */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-900">{book.title}</h1>
+          {book.author && (
+            <p className="text-slate-500 mt-1">by {book.author}</p>
+          )}
+
+          {/* Stats row */}
+          <div className="flex flex-wrap gap-4 mt-4 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500">Words:</span>
+              <span className="font-semibold text-slate-900">{book.totalWordCount.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500">Pages:</span>
+              <span className="font-semibold text-slate-900">{book.pageCount}</span>
+            </div>
             {book.pageCount > 0 && (
-              <> &bull; {Math.round(book.totalWordCount / book.pageCount)} avg/page</>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500">Avg/page:</span>
+                <span className="font-semibold text-slate-900">
+                  {Math.round(book.totalWordCount / book.pageCount)}
+                </span>
+              </div>
             )}
-          </p>
+          </div>
+
+          {/* Readability card */}
           {book.avgReadability && (
-            <div className="mt-3 p-3 bg-white rounded-lg border">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Readability</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                <div>
-                  <div className="text-gray-500 text-xs">Grade Level</div>
-                  <div className="font-medium">{book.avgReadability.fleschKincaidGrade}</div>
+            <div className="mt-6 bg-white rounded-xl border border-slate-200 p-5">
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Readability Analysis</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                  <div className="text-2xl font-bold text-slate-900">{book.avgReadability.fleschKincaidGrade}</div>
+                  <div className="text-xs text-slate-500 mt-1">Grade Level</div>
                 </div>
-                <div>
-                  <div className="text-gray-500 text-xs">Reading Ease</div>
-                  <div className="font-medium">{book.avgReadability.fleschReadingEase}</div>
+                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                  <div className="text-2xl font-bold text-slate-900">{book.avgReadability.fleschReadingEase}</div>
+                  <div className="text-xs text-slate-500 mt-1">Reading Ease</div>
                 </div>
-                <div>
-                  <div className="text-gray-500 text-xs">Words/Sentence</div>
-                  <div className="font-medium">{book.avgReadability.avgWordsPerSentence}</div>
+                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                  <div className="text-2xl font-bold text-slate-900">{book.avgReadability.avgWordsPerSentence}</div>
+                  <div className="text-xs text-slate-500 mt-1">Words/Sentence</div>
                 </div>
-                <div>
-                  <div className="text-gray-500 text-xs">Syllables/Word</div>
-                  <div className="font-medium">{book.avgReadability.avgSyllablesPerWord}</div>
+                <div className="text-center p-3 bg-slate-50 rounded-lg">
+                  <div className="text-2xl font-bold text-slate-900">{book.avgReadability.avgSyllablesPerWord}</div>
+                  <div className="text-xs text-slate-500 mt-1">Syllables/Word</div>
                 </div>
               </div>
-              <div className="mt-2 text-xs text-gray-500">
-                {book.avgReadability.readingLevel}
+              <div className="mt-4 text-center">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                  {book.avgReadability.readingLevel}
+                </span>
               </div>
             </div>
           )}
         </div>
 
-        <div className="space-y-6">
-          <section>
-            <h2 className="text-lg font-semibold mb-3">Upload Photos</h2>
-            <PhotoUpload bookId={bookId} currentPageCount={book.pageCount} />
-          </section>
+        {/* Upload section */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Upload Photos</h2>
+          <PhotoUpload bookId={bookId} currentPageCount={book.pageCount} />
+        </section>
 
-          <section>
-            <h2 className="text-lg font-semibold mb-3">Pages</h2>
-            <PageList bookId={bookId} />
-          </section>
-        </div>
+        {/* Pages section */}
+        <section>
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">
+            Pages
+            {book.pageCount > 0 && (
+              <span className="text-sm font-normal text-slate-500 ml-2">
+                ({book.processedCount}/{book.pageCount} processed)
+              </span>
+            )}
+          </h2>
+          <PageList bookId={bookId} />
+        </section>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 bg-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 text-center text-sm text-slate-500">
+          <a
+            href="https://github.com/ankile/word-counter"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-slate-700 transition-colors"
+          >
+            View on GitHub
+          </a>
+        </div>
+      </footer>
     </main>
   );
 }

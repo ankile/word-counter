@@ -29,75 +29,124 @@ export function BookList() {
   };
 
   if (books === undefined) {
-    return <div className="text-gray-500">Loading books...</div>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-pulse text-slate-400">Loading books...</div>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Books</h1>
-        <button
-          onClick={() => setIsCreating(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          + New Book
-        </button>
+      {/* Header with actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Your Books</h2>
+          <p className="text-sm text-slate-500">
+            {books.length} {books.length === 1 ? "book" : "books"} tracked
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <ImportBooks />
+          <button
+            onClick={() => setIsCreating(true)}
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            + New Book
+          </button>
+        </div>
       </div>
 
+      {/* Create form */}
       {isCreating && (
-        <form onSubmit={handleCreate} className="flex gap-2">
-          <input
-            type="text"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            placeholder="Book title"
-            className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            autoFocus
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            Create
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsCreating(false)}
-            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-          >
-            Cancel
-          </button>
-        </form>
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <form onSubmit={handleCreate} className="flex gap-3">
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Enter book title..."
+              className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Create
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsCreating(false)}
+              className="px-5 py-2.5 bg-slate-100 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-200 transition-colors"
+            >
+              Cancel
+            </button>
+          </form>
+        </div>
       )}
 
-      <ImportBooks />
-
+      {/* Book grid */}
       {books.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          No books yet. Create one to get started!
+        <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+          <div className="text-slate-400 mb-2">No books yet</div>
+          <p className="text-sm text-slate-500">
+            Create a new book or import from Book Tracker to get started
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {books.map((book) => (
             <div
               key={book._id}
-              className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+              className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all group"
             >
               <Link href={`/books/${book._id}`} className="block">
-                <h2 className="text-lg font-semibold truncate">{book.title}</h2>
-                <div className="mt-2 text-sm text-gray-600">
-                  <p>{book.totalWordCount.toLocaleString()} words</p>
-                  {book.pageCount > 0 && (
-                    <p>{Math.round(book.totalWordCount / book.pageCount)} avg/page</p>
-                  )}
-                  <p>
-                    {book.processedCount}/{book.pageCount} pages processed
+                <h3 className="font-semibold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                  {book.title}
+                </h3>
+                {book.author && (
+                  <p className="text-sm text-slate-500 truncate mt-0.5">
+                    by {book.author}
                   </p>
+                )}
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Words</span>
+                    <span className="font-medium text-slate-900">
+                      {book.totalWordCount.toLocaleString()}
+                    </span>
+                  </div>
+                  {book.pageCount > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-500">Avg per page</span>
+                      <span className="font-medium text-slate-900">
+                        {Math.round(book.totalWordCount / book.pageCount)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-500">Pages</span>
+                    <span className="font-medium text-slate-900">
+                      {book.processedCount}/{book.pageCount}
+                    </span>
+                  </div>
                 </div>
+                {/* Progress bar */}
+                {book.pageCount > 0 && (
+                  <div className="mt-3 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 rounded-full transition-all"
+                      style={{
+                        width: `${(book.processedCount / book.pageCount) * 100}%`,
+                      }}
+                    />
+                  </div>
+                )}
               </Link>
               <button
                 onClick={() => handleDelete(book._id)}
-                className="mt-3 text-sm text-red-600 hover:text-red-800"
+                className="mt-4 text-sm text-slate-400 hover:text-red-600 transition-colors"
               >
                 Delete
               </button>
