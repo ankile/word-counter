@@ -5,6 +5,7 @@ import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { PhotoUpload } from "../../components/PhotoUpload";
 import { PageList } from "../../components/PageList";
+import { SampleConfidence } from "../../components/SampleConfidence";
 import Link from "next/link";
 import { use } from "react";
 
@@ -79,13 +80,19 @@ export default function BookPage({ params }: BookPageProps) {
           {/* Stats row */}
           <div className="flex flex-wrap gap-4 mt-4 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-slate-500">Words:</span>
+              <span className="text-slate-500">Words (sampled):</span>
               <span className="font-semibold text-slate-900">{book.totalWordCount.toLocaleString()}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-slate-500">Pages:</span>
+              <span className="text-slate-500">Pages sampled:</span>
               <span className="font-semibold text-slate-900">{book.pageCount}</span>
             </div>
+            {book.totalPages && (
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500">Total pages:</span>
+                <span className="font-semibold text-slate-900">{book.totalPages}</span>
+              </div>
+            )}
             {book.pageCount > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-slate-500">Avg/page:</span>
@@ -123,6 +130,16 @@ export default function BookPage({ params }: BookPageProps) {
                   {book.avgReadability.readingLevel}
                 </span>
               </div>
+            </div>
+          )}
+
+          {/* Sampling confidence */}
+          {book.samplingStats && (
+            <div className="mt-6">
+              <SampleConfidence
+                stats={book.samplingStats}
+                totalBookPages={book.totalPages}
+              />
             </div>
           )}
         </div>

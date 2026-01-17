@@ -6,6 +6,8 @@ export default defineSchema({
     title: v.string(),
     author: v.optional(v.string()),
     createdAt: v.number(),
+    // Total pages in the book (from Firebase or manual entry)
+    totalPages: v.optional(v.number()),
     // Firebase integration fields
     firebaseId: v.optional(v.string()),
     firebaseUserId: v.optional(v.string()),

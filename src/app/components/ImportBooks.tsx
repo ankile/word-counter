@@ -60,6 +60,7 @@ export function ImportBooks() {
         firebaseUserId: DEFAULT_USER_ID,
         title: book.title,
         author: book.author,
+        totalPages: book.pageCount,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to import book");
