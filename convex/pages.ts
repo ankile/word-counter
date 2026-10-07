@@ -61,6 +61,8 @@ export const createMany = mutation({
         bookId: args.bookId,
         imageStorageId,
         pageNumber: firstPageNumber + i,
+        origin: "chosen",
+        ordinary: true,
         status: "pending",
         createdAt: Date.now(),
       });
