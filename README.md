@@ -6,10 +6,9 @@ A web app to photograph book pages, extract text via OCR, and count words. Desig
 
 ## Features
 
-- **Book Management** - Create and organize books
 - **Book Tracker Sync** - Sign in with your [Book Tracker](https://book.ankile.com) account; your library syncs automatically
 - **Phone-friendly** - Take page photos straight from the camera (photos are downscaled before upload); add to your home screen
-- **Photo Upload** - Drag & drop or select multiple page photos (mobile camera supported)
+- **Photo Upload** - Drag & drop or select multiple page photos
 - **OCR Processing** - Google Cloud Vision extracts text from images
 - **Word Counting** - Per-page and total word counts with averages
 - **Readability Metrics** - Flesch-Kincaid grade level and reading ease scores
@@ -31,6 +30,7 @@ A web app to photograph book pages, extract text via OCR, and count words. Desig
 - Node.js 22+
 - Google Cloud account with Vision API enabled
 - Convex account (free tier works)
+- For e2e tests: `gcloud` logged in as the Book Tracker operator (see [docs/testing.md](docs/testing.md))
 
 ### 1. Clone and Install
 
@@ -82,25 +82,19 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-### Checks
+### Testing
 
 ```bash
-npm run check   # typecheck (TypeScript 7) + lint (ESLint + Convex rules) + tests (Vitest)
-```
-
-### End-to-end tests
-
-```bash
-npm run e2e:setup   # once: synthetic accounts, App Check debug token, credentials in .env.local
-npm run test:e2e    # Playwright, desktop Chrome + iPhone WebKit, against `next dev` + Convex dev
+npm run check       # typecheck (TypeScript 7) + lint (ESLint + Convex rules) + unit tests (Vitest)
+npm run e2e:setup   # once: synthetic Book Tracker accounts, App Check debug token, credentials in .env.local
+npm run test:e2e    # Playwright (desktop Chrome + iPhone WebKit) against `next dev` + Convex dev
 E2E_BASE_URL=https://word-counter.ankile.com npm run test:e2e   # same suite against production
 ```
 
-The suite signs in as two synthetic Book Tracker accounts (`word-counter-e2e-a/b@example.com`,
-fixed UIDs) whose tracker libraries are reseeded before every test (`e2e/fixtures/library.ts`).
-`e2e/testAccounts.ts` provisions them through the Book Tracker operator's `gcloud` login (no service
-account keys). `convex/testing.ts` wipes only those accounts' word-counter data. Seeded books have no
-catalog work links, so Book Tracker never lists the test accounts as readers.
+The e2e suite drives the real app as two synthetic Book Tracker accounts (`word-counter-e2e-a/b@example.com`)
+with reseeded libraries and real OCR. [docs/testing.md](docs/testing.md) covers one-time setup, how the accounts and
+fixtures work, the release checklist, troubleshooting, and every resource word-counter relies on in the Book
+Tracker Firebase project.
 
 Required Convex environment variables are declared in `convex/convex.config.ts`; deploys fail if one is missing.
 
@@ -112,7 +106,7 @@ The app is deployed to Vercel with automatic deploys from the `main` branch:
 - **Backend**: Convex Cloud
 - **Domain**: [word-counter.ankile.com](https://word-counter.ankile.com)
 
-To deploy changes:
+To deploy changes (full release checklist in [docs/testing.md](docs/testing.md#release-checklist)):
 
 ```bash
 # Deploy Convex functions (before the frontend, so new API functions exist)
