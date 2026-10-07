@@ -21,7 +21,7 @@ export function averageReadability(readabilities: Readability[]) {
   };
 }
 
-// Target precision for the sample-size recommendation: ±10% at 95% confidence
+// Target precision: ±10% at 95% confidence
 const MARGIN_TARGET = 0.1;
 const Z_95 = 1.96;
 
@@ -32,11 +32,21 @@ const T_95 = [
 ];
 const tCritical95 = (df: number) => T_95[df - 1] ?? Z_95;
 
+// Relative 95% margin of error for n pages with coefficient of variation cv
+const relativeMargin = (cv: number, n: number) => (tCritical95(n - 1) * cv) / Math.sqrt(n);
+
+/** Smallest sample whose expected margin is within the target, using the same t-interval we report. */
+function requiredSampleSize(cv: number): number {
+  let n = 2;
+  while (relativeMargin(cv, n) > MARGIN_TARGET) n++;
+  return n;
+}
+
 export type ConfidenceLevel = "low" | "medium" | "high";
 
 /**
  * Treat the uploaded pages as a random sample of the book and estimate mean words per page,
- * its 95% confidence interval, and how many pages are needed for ±10% precision.
+ * its 95% confidence interval (Student's t), and how many pages are needed for ±10% precision.
  */
 export function computeSamplingStats(wordCounts: number[]) {
   const n = wordCounts.length;
@@ -46,14 +56,14 @@ export function computeSamplingStats(wordCounts: number[]) {
   const stdDev = Math.sqrt(wordCounts.reduce((sum, x) => sum + (x - m) ** 2, 0) / (n - 1));
   const cv = m > 0 ? stdDev / m : 0;
 
-  // n = (z * CV / margin)^2
-  const recommendedSampleSize = Math.max(2, Math.ceil(((Z_95 * cv) / MARGIN_TARGET) ** 2));
-
+  const recommendedSampleSize = requiredSampleSize(cv);
   const marginOfError = tCritical95(n - 1) * (stdDev / Math.sqrt(n));
+  const marginFraction = m > 0 ? marginOfError / m : 0;
 
+  // Confidence follows the precision actually achieved
   let confidenceLevel: ConfidenceLevel = "low";
-  if (n >= recommendedSampleSize) confidenceLevel = "high";
-  else if (n >= recommendedSampleSize * 0.5) confidenceLevel = "medium";
+  if (marginFraction <= MARGIN_TARGET) confidenceLevel = "high";
+  else if (marginFraction <= 2 * MARGIN_TARGET) confidenceLevel = "medium";
 
   return {
     sampleSize: n,
@@ -63,7 +73,7 @@ export function computeSamplingStats(wordCounts: number[]) {
     recommendedSampleSize,
     additionalPagesNeeded: Math.max(0, recommendedSampleSize - n),
     confidenceLevel,
-    currentMarginPercent: m > 0 ? round((marginOfError / m) * 100, 1) : 0,
+    currentMarginPercent: round(marginFraction * 100, 1),
     ciLowerPerPage: Math.round(Math.max(0, m - marginOfError)),
     ciUpperPerPage: Math.round(m + marginOfError),
   };

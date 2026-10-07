@@ -88,6 +88,9 @@ test("photographed pages are OCR'd into word counts and a book estimate", async 
 
   await expect(page.getByText("Sampling Analysis")).toBeVisible();
   await expect(page.getByText("Estimated total (255 pages)")).toBeVisible();
+  // Two pages give a wide t-interval, so the app asks for more rather than claiming confidence
+  await expect(page.getByText(/^Add ~\d+ more pages$/)).toBeVisible();
+  await expect(page.getByText("High Confidence")).toHaveCount(0);
   await expect(page.getByText("Readability Analysis")).toBeVisible();
 
   // Re-processing yields the same count

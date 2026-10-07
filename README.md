@@ -88,6 +88,20 @@ Open [http://localhost:3000](http://localhost:3000)
 npm run check   # typecheck (TypeScript 7) + lint (ESLint + Convex rules) + tests (Vitest)
 ```
 
+### End-to-end tests
+
+```bash
+npm run e2e:setup   # once: synthetic accounts, App Check debug token, credentials in .env.local
+npm run test:e2e    # Playwright, desktop Chrome + iPhone WebKit, against `next dev` + Convex dev
+E2E_BASE_URL=https://word-counter.ankile.com npm run test:e2e   # same suite against production
+```
+
+The suite signs in as two synthetic Book Tracker accounts (`word-counter-e2e-a/b@example.com`,
+fixed UIDs) whose tracker libraries are reseeded before every test (`e2e/fixtures/library.ts`).
+`e2e/testAccounts.ts` provisions them through the Book Tracker operator's `gcloud` login (no service
+account keys). `convex/testing.ts` wipes only those accounts' word-counter data. Seeded books have no
+catalog work links, so Book Tracker never lists the test accounts as readers.
+
 Required Convex environment variables are declared in `convex/convex.config.ts`; deploys fail if one is missing.
 
 ## Deployment

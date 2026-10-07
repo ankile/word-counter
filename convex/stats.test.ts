@@ -18,17 +18,29 @@ describe("computeSamplingStats", () => {
     expect(stats.currentMarginPercent).toBe(16.6);
   });
 
-  test("recommends sample size for ±10% precision", () => {
-    // cv = 20/300 → n = ceil((1.96 * 0.0667 / 0.1)^2) = 2, already satisfied
+  test("recommends a sample size reaching ±10% under the same t-interval", () => {
+    // cv = 6.67%: margins are 60% (n=2), 16.6% (n=3), 10.6% (n=4), 8.3% (n=5)
     const stats = computeSamplingStats([280, 300, 320])!;
-    expect(stats.recommendedSampleSize).toBe(2);
-    expect(stats.additionalPagesNeeded).toBe(0);
-    expect(stats.confidenceLevel).toBe("high");
+    expect(stats.recommendedSampleSize).toBe(5);
+    expect(stats.additionalPagesNeeded).toBe(2);
+    expect(stats.confidenceLevel).toBe("medium");
 
-    // cv = 50% → n = ceil(9.8^2) = 97
     const noisy = computeSamplingStats([100, 300])!;
     expect(noisy.recommendedSampleSize).toBeGreaterThan(50);
     expect(noisy.confidenceLevel).toBe("low");
+  });
+
+  test("confidence is high only once the achieved margin is within ±10%", () => {
+    // Two near-identical pages still have a wide t-interval (df = 1)
+    const twoPages = computeSamplingStats([122, 115])!;
+    expect(twoPages.currentMarginPercent).toBeGreaterThan(10);
+    expect(twoPages.confidenceLevel).not.toBe("high");
+    expect(twoPages.additionalPagesNeeded).toBeGreaterThan(0);
+
+    const steady = computeSamplingStats([300, 305, 295, 302, 298, 301])!;
+    expect(steady.currentMarginPercent).toBeLessThanOrEqual(10);
+    expect(steady.confidenceLevel).toBe("high");
+    expect(steady.additionalPagesNeeded).toBe(0);
   });
 });
 
