@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as books from "../books.js";
+import type * as migrations from "../migrations.js";
 import type * as ocr from "../ocr.js";
 import type * as ocrAction from "../ocrAction.js";
 import type * as pages from "../pages.js";
@@ -28,6 +29,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   books: typeof books;
+  migrations: typeof migrations;
   ocr: typeof ocr;
   ocrAction: typeof ocrAction;
   pages: typeof pages;
