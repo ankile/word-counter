@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { cleanOcrText, countWords } from "../convex/textAnalysis.ts";
+import { computeVocabularyStats } from "../convex/vocabulary.ts";
 import { EXPECTED_LIBRARY_A } from "./fixtures/library.ts";
 import { PAGES } from "./fixtures/pages.ts";
 import {
@@ -14,7 +15,8 @@ import {
 } from "./testAccounts.ts";
 
 const PAGE_FILES = PAGES.map((p) => new URL(`fixtures/${p.file}`, import.meta.url).pathname);
-const EXPECTED_WORDS = PAGES.map((p) => countWords(cleanOcrText(`${p.header}\n${p.body}\n${p.pageNumber}`)));
+const CLEANED_TEXTS = PAGES.map((p) => cleanOcrText(`${p.header}\n${p.body}\n${p.pageNumber}`));
+const EXPECTED_WORDS = CLEANED_TEXTS.map(countWords);
 // OCR of a clean page is near-exact; allow for a split or merged token
 const WORD_TOLERANCE = 2;
 
@@ -78,7 +80,7 @@ test("photographed pages are OCR'd into word counts and a book estimate", async 
   await page.getByRole("link", { name: /^Foundation/ }).click();
   await expect(page.getByRole("heading", { name: "Foundation" })).toBeVisible();
 
-  await page.locator("input[type=file][multiple]").setInputFiles(PAGE_FILES);
+  await page.locator("input[type=file][multiple]").setInputFiles(PAGE_FILES.slice(0, 2));
   await expect(page.getByText("Done", { exact: true })).toHaveCount(2, { timeout: 90_000 });
   await expect(page.getByText("Page 1", { exact: true })).toBeVisible();
   await expect(page.getByText("Page 2", { exact: true })).toBeVisible();
@@ -93,6 +95,7 @@ test("photographed pages are OCR'd into word counts and a book estimate", async 
   await expect(page.getByText(/^Add ~\d+ more pages$/)).toBeVisible();
   await expect(page.getByText("High Confidence")).toHaveCount(0);
   await expect(page.getByText("Readability Analysis")).toBeVisible();
+  await expect(page.getByText(/^Scan at least 4 pages to estimate the book's vocabulary \(2 so far\)\.$/)).toBeVisible();
 
   // Re-processing yields the same count
   await page.getByRole("button", { name: "Re-process" }).first().click();
@@ -110,6 +113,26 @@ test("photographed pages are OCR'd into word counts and a book estimate", async 
   await page.getByRole("button", { name: "Delete" }).last().click();
   await expect(page.getByText("Pages sampled:")).toBeVisible();
   await expect(pageCards(page).getByText(/^[\d,]+ words$/)).toHaveCount(1);
+});
+
+test("four pages give a unique-word estimate with a growth chart", async ({ page }) => {
+  await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length);
+  await page.getByRole("link", { name: /^Foundation/ }).click();
+  await page.locator("input[type=file][multiple]").setInputFiles(PAGE_FILES);
+  await expect(page.getByText("Done", { exact: true })).toHaveCount(4, { timeout: 90_000 });
+
+  // What the estimator gives on the true text of these pages, extrapolated to Foundation's 255 pages
+  const expected = computeVocabularyStats(CLEANED_TEXTS, 255)!.projection!;
+  const card = page.locator("div", { has: page.getByRole("heading", { name: "Unique words" }) }).last();
+  const shown = Number((await card.getByText(/^≈[\d,]+$/).textContent())!.replace(/[^\d]/g, ""));
+  // OCR can differ from the source text by a word or two per page
+  expect(Math.abs(shown - expected.uniqueWords) / expected.uniqueWords).toBeLessThan(0.05);
+  await expect(card.getByText(/^95% range [\d,]+–[\d,]+ across all 255 pages$/)).toBeVisible();
+  await expect(card.getByRole("img", { name: /New unique words per page, fitted over 4 sampled pages/ })).toBeVisible();
+
+  await card.getByText("Show data").click();
+  await expect(card.getByRole("row")).toHaveCount(1 + 4 + 1); // header, 4 sampled, projected
+  await expect(card.getByRole("row").last()).toContainText("255 (projected)");
 });
 
 test("changes in Book Tracker show up on the next load", async ({ page }) => {

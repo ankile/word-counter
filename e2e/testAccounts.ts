@@ -47,6 +47,8 @@ async function googleApi(url: string, method = "GET", body?: unknown) {
       "Content-Type": "application/json",
     },
     body: body === undefined ? undefined : JSON.stringify(body),
+    // A hung request should fail the test quickly with a clear error, not eat the whole test timeout
+    signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) throw new Error(`${method} ${url} → ${response.status}: ${await response.text()}`);
   return await response.json();

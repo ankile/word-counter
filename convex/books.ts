@@ -4,6 +4,7 @@ import { mutation, query } from "./_generated/server";
 import { requireOwnedBook, requireUserId } from "./auth";
 import { deletePage, pagesForBook } from "./pages";
 import { averageReadability, computeSamplingStats } from "./stats";
+import { computeVocabularyStats } from "./vocabulary";
 
 function summarizePages(pages: Doc<"pages">[]) {
   const processed = pages.filter((p) => p.status === "done");
@@ -48,6 +49,10 @@ export const get = query({
       ...summarizePages(pages),
       avgReadability: averageReadability(processed.flatMap((p) => (p.readability ? [p.readability] : []))),
       samplingStats: computeSamplingStats(processed.map((p) => p.wordCount!)),
+      vocabulary: computeVocabularyStats(
+        processed.map((p) => p.extractedText!),
+        book.totalPages
+      ),
     };
   },
 });

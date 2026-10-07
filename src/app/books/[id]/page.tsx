@@ -11,6 +11,7 @@ import { ChevronLeftIcon } from "../../components/icons";
 import { PageList } from "../../components/PageList";
 import { PhotoUpload } from "../../components/PhotoUpload";
 import { SampleConfidence } from "../../components/SampleConfidence";
+import { VocabularyCard } from "../../components/VocabularyCard";
 
 const backLink = (
   <Link
@@ -84,6 +85,12 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
         {book.samplingStats && (
           <div className="mt-6">
             <SampleConfidence stats={book.samplingStats} totalBookPages={book.totalPages} />
+          </div>
+        )}
+
+        {book.processedCount > 0 && (
+          <div className="mt-6">
+            <VocabularyCard stats={book.vocabulary} processedPages={book.processedCount} />
           </div>
         )}
 

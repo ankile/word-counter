@@ -17,6 +17,7 @@ import type * as stats from "../stats.js";
 import type * as testing from "../testing.js";
 import type * as textAnalysis from "../textAnalysis.js";
 import type * as validators from "../validators.js";
+import type * as vocabulary from "../vocabulary.js";
 
 import type {
   ApiFromModules,
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   testing: typeof testing;
   textAnalysis: typeof textAnalysis;
   validators: typeof validators;
+  vocabulary: typeof vocabulary;
 }>;
 
 /**
