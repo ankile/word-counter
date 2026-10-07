@@ -22,7 +22,7 @@ word-counter is where that number gets measured. Today it measures it in a way B
    English-only, and many of the owner's books are Norwegian.
 5. **The estimate is never stored.** `SampleConfidence.tsx` computes the total in the browser.
 
-Production on 2026-10-07: 175 mirrored books, 4 with OCR'd pages (15, 4, 18 and 1 pages), all of them chosen samples.
+Production on 2026-10-07: 175 mirrored books, 4 with OCR'd pages (15, 4, 18 and 1 pages), all of them chosen by hand.
 
 ## Decisions already made
 
@@ -31,8 +31,50 @@ Production on 2026-10-07: 175 mirrored books, 4 with OCR'd pages (15, 4, 18 and 
 - **word-counter never writes to Book Tracker's Firestore.** It calls a Book Tracker callable, and the server does the
   write. This keeps the existing constraint in `CLAUDE.md` (tracker data is read-only from word-counter, no Admin SDK,
   no service-account keys).
-- **Sampling is random over printed page numbers 1..`pageCount`.** The mean over uniformly random pages, blanks
-  included, times `pageCount` is an unbiased total. This fixes problem 1 instead of guessing a correction factor.
+- **No photo is thrown out, and nothing is re-sampled (owner, 2026-10-07).** Hand-chosen pages stay in the estimate.
+  The fix for problem 1 is to add a few randomly drawn pages and use them to correct the hand-chosen ones (W6), not
+  to replace them.
+- **Precision bar (owner, 2026-10-07):** a book can be sent to Book Tracker at ±20% (95% confidence). The
+  recommended target is ±10%. The app aims for ±10% when it suggests pages to add, and labels anything between 10%
+  and 20% as sendable but short of the recommendation.
+
+## How the estimate works
+
+Pages fall into two kinds:
+
+- **Ordinary pages:** a full page of running text, with no chapter start or end, illustration, table or blank space.
+  These are what people pick by hand.
+- **Other pages:** everything else in 1..`pageCount`: blanks, part titles, chapter openings and endings,
+  illustrations, maps.
+
+The book's average words per page is
+
+```
+wordsPerPage = p · mean_ordinary + (1 − p) · mean_other
+```
+
+where:
+
+- `p` is the share of ordinary pages, estimated from **random pages only**.
+- `mean_other` is the average of the random pages that are not ordinary.
+- `mean_ordinary` pools **hand-chosen pages and random ordinary pages**. This is where the existing work counts in
+  full. It rests on one assumption: a hand-chosen ordinary page is as typical as a random ordinary page. That's
+  reasonable when someone flips to arbitrary pages of running text.
+
+A sample with no random pages has no estimate of `p`. It gets method `chosen-pages`, is shown with a warning that it
+reads high, and can't be sent. A random sample with no hand-chosen pages also works, because then the formula reduces
+to the plain mean of the random pages.
+
+Variance comes from the usual stratified (delta-method) approximation:
+
+```
+Var ≈ p²·s²_ord/n_ord + (1−p)²·s²_oth/n_oth + (mean_ord − mean_oth)²·p(1−p)/n_random
+```
+
+When there are fewer than 2 other pages, `s²_oth` falls back to the variance of all random pages. When there are
+none, that term is 0 and `p = 1`. The 95% interval uses Student's t with the total sampled pages minus 2 as degrees
+of freedom, which is good enough. The agents may swap in a seeded bootstrap if it holds up better in tests; the
+contract only fixes the outputs.
 
 ## Changes in word-counter
 
@@ -48,27 +90,37 @@ Extend `fetchTrackerBooks` and the `trackerBook` validator / `books` table with:
 These fields stay read-only. The synthetic e2e books must keep having no `workId`/`editionId` (the existing rule in
 `CLAUDE.md`).
 
-### W2. Record the printed page number of every photo
+### W2. Page origin, printed page number, ordinary flag
 
-Add `bookPage: v.optional(v.number())` to `pages`, separate from the upload-order `pageNumber`. A photo taken for a
-sampling slot (W3) gets that slot's page number. Existing pages keep `bookPage` unset and count as chosen samples.
-Follow the schema-change protocol in `CLAUDE.md`: optional field first; tightening it is unnecessary because ad-hoc
-uploads stay allowed.
+Add three fields to `pages`:
 
-### W3. Random sampling plan
+- `origin: "chosen" | "random"`. Existing pages and ad-hoc uploads are `chosen`.
+- `bookPage: v.optional(v.number())`: the printed page number. A random slot sets it. A chosen upload may set it if
+  the user types it in, but doesn't have to.
+- `ordinary: v.boolean()`: whether the page is an ordinary page of running text. Ask with one tap after each random
+  page is OCR'd ("Ordinary page of text?", default yes). Chosen pages default to yes and can be edited.
 
-- Per book, store a sampling plan in Convex so it survives reloads and moves between phone and desktop: page numbers
-  drawn uniformly without replacement from 1..`totalPages`. Start with about 10 pages. A "draw more pages" action
-  appends more draws.
-- The book page lists the plan's open slots ("Photograph page 214"). A photo uploaded into a slot gets that slot's
-  `bookPage`. The multi-page scan flow (`7eac708`) should fill slots in order.
+Migration (the schema-change protocol in `CLAUDE.md`): add the fields as optional, backfill the existing pages with
+`origin: "chosen", ordinary: true`, then make `origin` and `ordinary` required. Show the flag on each thumbnail so
+the owner can untick existing chosen pages that turn out to be chapter openings. Nothing is deleted.
+
+### W3. Suggest random pages to add
+
+- Per book, store a list of suggested pages in Convex so it survives reloads and moves between phone and desktop:
+  page numbers drawn uniformly without replacement from 1..`totalPages`.
+- How many to suggest:
+  - At least `MIN_RANDOM_PAGES` (start at 8) so that `p` can be estimated at all.
+  - Beyond that, as many as the variance formula projects are needed to reach ±10%, using the current estimates.
+  - Show the count for ±20% next to it ("6 more pages to send, 14 for the recommended ±10%").
+  - A "suggest more" action draws additional pages.
+- The book page lists the open slots ("Photograph page 214"). A photo uploaded into a slot gets `origin: "random"`
+  and that slot's `bookPage`. The multi-page scan flow (`7eac708`) fills slots in order.
 - **A slot can't be skipped because it's blank or has no body text.** Photograph it anyway. OCR returns zero or a
-  few words, and that is the true count. Skipping those pages is exactly the bias this replaces. If the page can't be
-  photographed at all (missing, torn), allow replacing the slot with a fresh draw. That is the only way to leave one.
-- If `totalPages` changes in Book Tracker, slots beyond the new count drop out of the plan, and their photos drop
-  out of the random sample.
-- Ad-hoc uploads outside the plan remain allowed (they are useful for vocabulary and readability). They don't count
-  toward the random sample.
+  few words, and that is the true count; the user marks it not ordinary. Skipping such pages is exactly the bias the
+  random pages exist to correct. If the page can't be photographed at all (missing, torn), allow replacing the slot
+  with a fresh draw. That is the only way to leave one.
+- If `totalPages` changes in Book Tracker, slots beyond the new count drop out. Their photos stay, recorded as
+  `chosen`.
 
 ### W4. Freeze the counting rule
 
@@ -88,32 +140,40 @@ bump the version, re-run a migration like `recleanPages`, and re-publish (W7 sen
 
 ### W6. A server-side book estimate
 
-Add a pure function to `convex/stats.ts` (next to `computeSamplingStats`). It takes the done pages and `totalPages`
-and returns:
+Add a pure function to `convex/stats.ts` that implements "How the estimate works". It takes the done pages and
+`totalPages` and returns:
 
 ```ts
 {
-  method: "random-pages" | "chosen-pages",  // random when ≥ MIN_RANDOM_PAGES planned pages are done
-  sampledPages: number,                     // pages behind the mean (planned only, when random)
-  zeroWordPages: number,
-  wordsPerPage: number,                     // mean, zero-word pages included
-  wordsPerPageLow: number,                  // 95% t-interval, the same as computeSamplingStats
+  method: "random-pages" | "corrected-chosen" | "chosen-pages",
+  // random-pages: only random pages; corrected-chosen: random + chosen (formula above);
+  // chosen-pages: no random pages yet, biased high, not sendable
+  chosenPages: number,
+  randomPages: number,
+  ordinaryShare: number | null,   // p; null for chosen-pages
+  wordsPerPage: number,
+  wordsPerPageLow: number,        // 95%
   wordsPerPageHigh: number,
   marginPercent: number,
-  pageCountBasis: number,                   // totalPages at the time of computation
+  sendable: boolean,              // method !== "chosen-pages" && randomPages ≥ MIN_RANDOM_PAGES && marginPercent ≤ 20
+  meetsRecommended: boolean,      // sendable && marginPercent ≤ 10
+  randomPagesForSendable: number, // projected additional random pages; 0 when met
+  randomPagesForRecommended: number,
+  pageCountBasis: number,         // totalPages at the time of computation
   totalWords: number, totalWordsLow: number, totalWordsHigh: number,
   countingVersion: number,
 }
 ```
 
-When the random sample is big enough, use only planned pages. Otherwise use every done page and report
-`chosen-pages`. Return it from `books.get`, and have `SampleConfidence` render this instead of computing totals itself.
+`computeSamplingStats` and its "add N more pages" advice are replaced by this. Return it from `books.get`, and have
+`SampleConfidence` render it instead of computing totals itself. The 4 existing books will show as `chosen-pages`
+with their current numbers and a list of suggested random pages.
 
 ### W7. "Send to Book Tracker"
 
-- The button is enabled only when all of these hold: the book has an `editionId`, `totalPages` is known,
-  `method === "random-pages"`, and `marginPercent ≤ 20`. When disabled, say why (e.g. "Link this book to the catalog
-  in Book Tracker first").
+- The button is enabled only when all of these hold: the book has an `editionId`, `totalPages` is known, and the
+  estimate is `sendable`. When disabled, say why ("Link this book to the catalog in Book Tracker first", or "Add 6
+  random pages to send"). When it is sendable but not `meetsRecommended`, show the gap to ±10% next to the button.
 - On click, call the `catalog-setwordestimate` callable (contract below) with `firebase/functions`, region
   `europe-west1`, from the existing app in `src/app/lib/firebase.ts`. Auth and App Check tokens are attached
   automatically, and the word-counter app is already registered for App Check.
@@ -123,17 +183,24 @@ When the random sample is big enough, use only planned pages. Otherwise use ever
 
 ### W8. Tests and release
 
-- `npm run check` must pass. Unit tests go in `convex/stats.test.ts` for W6: zero-word pages pull the mean down,
-  planned and ad-hoc pages are kept apart, the method switches at the threshold, slots past a shrunken `totalPages`
-  are dropped. Add tests for the W7 gating and payload builder.
+- `npm run check` must pass. Unit tests go in `convex/stats.test.ts` for W6:
+  - Zero-word other pages pull the mean down.
+  - Chosen pages tighten `mean_ordinary` but never move `p`.
+  - A chosen-only sample is `chosen-pages` and not sendable.
+  - A random-only sample equals the plain mean.
+  - The 20% and 10% thresholds flip `sendable` and `meetsRecommended`.
+  - Slots past a shrunken `totalPages` become chosen.
+
+  Add tests for the W7 gating and payload builder, and for the W2 backfill (existing pages keep their counts and
+  become chosen and ordinary).
 - The owner judges tests by whether they catch errors, not by how many there are. For every change, revert it
   locally and confirm its test goes red. Mutants must build cleanly, so the failure comes from the assertion and not
   from a broken build.
-- e2e (`e2e/wordCounter.spec.ts`): fill a sampling plan as synthetic user A, including a blank page, and check the
-  estimate. Also check that "Send to Book Tracker" is disabled with the "link first" reason on a synthetic (unlinked)
-  book. Once the callable is deployed, call it for a synthetic book and assert the `failed-precondition` rejection is
-  shown. That exercises auth, App Check and the contract end to end without writing catalog data. The owner checks
-  one real publish by hand.
+- e2e (`e2e/wordCounter.spec.ts`): as synthetic user A, fill suggested slots, including a blank page marked not
+  ordinary, on top of a few chosen pages, and check the estimate and the "pages to add" counts. Also check that
+  "Send to Book Tracker" is disabled with the "link first" reason on a synthetic (unlinked) book. Once the callable is
+  deployed, call it for a synthetic book and assert the `failed-precondition` rejection is shown. That exercises
+  auth, App Check and the contract end to end without writing catalog data. The owner checks one real send by hand.
 - Add `catalog-setwordestimate` to the list of Book Tracker resources in `docs/testing.md`.
 
 ## Book Tracker side (not for word-counter agents)
@@ -145,11 +212,12 @@ Built in the book-tracker repo before W7 can be tested end to end. The contract:
 interface SetWordEstimateRequest {
   bookId: string;            // users/{caller uid}/books/{bookId} (= trackerBookId)
   editionId: string;         // must equal that book's editionId
-  method: "random-pages" | "chosen-pages";
+  method: "random-pages" | "corrected-chosen";
   countingVersion: number;
   pageCountBasis: number;
-  sampledPages: number;
-  zeroWordPages: number;
+  chosenPages: number;
+  randomPages: number;
+  ordinaryShare: number;
   wordsPerPage: number;
   wordsPerPageLow: number;
   wordsPerPageHigh: number;
@@ -161,20 +229,15 @@ interface SetWordEstimateResponse { stored: true; measuredAt: string }  // ISO t
 ```
 
 The server requires a verified email and App Check (the same as the other catalog callables). It checks that the
-caller owns `bookId` and that the book is linked to `editionId`; otherwise it rejects with `failed-precondition`.
-It validates ranges, then writes `catalogEditions/{editionId}.wordEstimate` with `createdBy` and `measuredAt`. The
-last write wins.
+caller owns `bookId` and that the book is linked to `editionId`; otherwise it rejects with `failed-precondition`. It
+rejects margins wider than ±20%, validates ranges, then writes `catalogEditions/{editionId}.wordEstimate` with
+`createdBy` and `measuredAt`. The last write wins.
 
 Book Tracker UI and statistics come later, in a separate step.
 
 ## Out of scope
 
+- Deleting, replacing or re-sampling existing photos.
 - Writing to Book Tracker Firestore directly, the Admin SDK, or service-account keys.
 - Imputing words per page for books that haven't been sampled. Book Tracker shows coverage instead.
 - Estimates for books that aren't linked to a catalog edition.
-
-## Open questions for the owner
-
-1. Is ±20% at 95% the right bar for sending, or should it be ±10% (the app's current "high confidence")?
-2. Should the 4 existing chosen-page samples be re-sampled randomly, or be sendable as `chosen-pages` with a caveat?
-   This doc assumes re-sampling.

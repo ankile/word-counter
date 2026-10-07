@@ -47,6 +47,10 @@ screenshots and traces in `test-results/`; open the HTML report with `npx playwr
   `e2e/fixtures/library.ts` and deletes any other books there. Account A has 7 books covering ordering by `lastReadAt`
   (with `createdAt` as fallback), a merged catalog author, two authors, no author, and finished books. Account B
   has 1 book, used for the isolation test.
+- **Never delete fixture books.** Book Tracker's `deletebookupdates` trigger recursively deletes a deleted
+  book's document asynchronously, so deleting a fixture and re-seeding the same ID can lose the re-seeded copy.
+  Tests that delete tracker books create throwaway ones with random IDs (`addTemporaryTrackerBook`); seeding
+  removes any leftovers.
 - **Catalog safety.** Seeded books reference real `catalogAuthors` documents but have no `workId`/`editionId`, so Book
   Tracker's sharing projection never lists the test accounts as readers of a work. Keep it that way when editing the
   fixtures. Seeding fails loudly if a referenced author no longer exists.

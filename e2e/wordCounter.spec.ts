@@ -6,6 +6,7 @@ import { EXPECTED_LIBRARY_A } from "./fixtures/library.ts";
 import { PAGES } from "./fixtures/pages.ts";
 import {
   ACCOUNT_A,
+  addTemporaryTrackerBook,
   ACCOUNT_B,
   deleteTrackerBook,
   resetConvex,
@@ -148,22 +149,25 @@ test("four pages give a unique-word estimate with a growth chart", async ({ page
 });
 
 test("changes in Book Tracker show up on the next load", async ({ page }) => {
-  await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length);
+  // Deletions use throwaway books: see addTemporaryTrackerBook for why fixtures are never deleted
+  const unsampledId = await addTemporaryTrackerBook(ACCOUNT_A.uid, "Temporary Unsampled");
+  const sampledId = await addTemporaryTrackerBook(ACCOUNT_A.uid, "Temporary Sampled");
+  await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length + 2);
 
   // A sampled book survives removal from the tracker; an unsampled one disappears
-  await page.getByRole("link", { name: /^Kafka on the Shore/ }).click();
+  await page.getByRole("link", { name: /^Temporary Sampled/ }).click();
   await page.locator("input[type=file][multiple]").setInputFiles(PAGE_FILES[0]);
   await expect(page.getByText("Page 1", { exact: true })).toBeVisible();
 
   await updateTrackerBook(ACCOUNT_A.uid, "e2e-war-and-peace", { title: "War and Peace (Maude translation)" });
-  await deleteTrackerBook(ACCOUNT_A.uid, "e2e-field-notes");
-  await deleteTrackerBook(ACCOUNT_A.uid, "e2e-kafka");
+  await deleteTrackerBook(ACCOUNT_A.uid, unsampledId);
+  await deleteTrackerBook(ACCOUNT_A.uid, sampledId);
 
   await page.goto("/");
-  await expect(page.getByText("6 books", { exact: true })).toBeVisible();
+  await expect(page.getByText(`${EXPECTED_LIBRARY_A.length + 1} books`, { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /^War and Peace \(Maude translation\)\s*Leo Tolstoy/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /^Field Notes/ })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: /^Kafka on the Shore/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Temporary Unsampled/ })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /^Temporary Sampled/ })).toBeVisible();
 });
 
 test("accounts only see their own books", async ({ page }) => {

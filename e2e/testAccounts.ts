@@ -139,6 +139,19 @@ export async function updateTrackerBook(uid: string, bookId: string, changes: Pa
   await setDocument(`users/${uid}/books/${bookId}`, bookDocument(uid, book, Date.now()));
 }
 
+/**
+ * Add a throwaway book (random ID) to a tracker library. Tests that delete tracker books must use these:
+ * Book Tracker's deletion trigger (deletebookupdates) recursively deletes the book document asynchronously,
+ * so deleting a fixture and re-seeding the same ID can have the re-seeded copy deleted moments later.
+ */
+export async function addTemporaryTrackerBook(uid: string, title: string): Promise<string> {
+  const id = `e2e-temp-${randomUUID()}`;
+  const book: SeedBook = { id, title, authorIds: [], pageCount: 200, finished: false, lastReadDaysAgo: 0, createdDaysAgo: 0 };
+  await setDocument(`users/${uid}/books/${id}`, bookDocument(uid, book, Date.now()));
+  return id;
+}
+
+/** Only for temporary books; see addTemporaryTrackerBook. */
 export async function deleteTrackerBook(uid: string, bookId: string) {
   await deleteDocument(`users/${uid}/books/${bookId}`);
 }
@@ -149,6 +162,8 @@ export async function deleteTrackerBook(uid: string, bookId: string) {
 export function resetConvex(prod: boolean) {
   execFileSync("npx", ["convex", "run", ...(prod ? ["--prod"] : []), "testing:resetE2eAccounts"], {
     stdio: "inherit",
+    // A stalled CLI call should fail the test, not hang the run
+    timeout: 120_000,
   });
 }
 

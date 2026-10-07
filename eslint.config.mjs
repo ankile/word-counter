@@ -7,7 +7,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   ...convexPlugin.configs.recommended,
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "convex/_generated/**"]),
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "convex/_generated/**", "playwright-report/**", "test-results/**"]),
 ]);
 
 export default eslintConfig;
