@@ -124,11 +124,23 @@ test("four pages give a unique-word estimate with a growth chart", async ({ page
   // What the estimator gives on the true text of these pages, extrapolated to Foundation's 255 pages
   const expected = computeVocabularyStats(CLEANED_TEXTS, 255)!.projection!;
   const card = page.locator("div", { has: page.getByRole("heading", { name: "Unique words" }) }).last();
-  const shown = Number((await card.getByText(/^≈[\d,]+$/).textContent())!.replace(/[^\d]/g, ""));
+  const shown = Number((await card.getByText(/^≈[\d,]+$/).first().textContent())!.replace(/[^\d]/g, ""));
   // OCR can differ from the source text by a word or two per page
   expect(Math.abs(shown - expected.uniqueWords) / expected.uniqueWords).toBeLessThan(0.05);
   await expect(card.getByText(/^95% range [\d,]+–[\d,]+ across all 255 pages$/)).toBeVisible();
-  await expect(card.getByRole("img", { name: /New unique words per page, fitted over 4 sampled pages/ })).toBeVisible();
+
+  // Cumulative and marginal charts, the fitted equation, and fit-quality measures
+  await expect(card.getByRole("img", { name: /^Unique words so far: fitted over 4 sampled pages and projected to page 255$/ })).toBeVisible();
+  await expect(card.getByRole("img", { name: /^New unique words per page: fitted over 4 sampled pages/ })).toBeVisible();
+  await expect(card.getByText(/^V\(k\) = [\d.]+ · k/)).toBeVisible();
+  for (const measure of ["R² (log-log)", "Residual, RMS / max", "Leave-one-page-out", "Error on 10 novels"]) {
+    await expect(card.getByText(measure, { exact: true })).toBeVisible();
+  }
+  await card.getByText("How is this estimated?").click();
+  await expect(card.getByRole("link", { name: /^Heaps' law/ })).toHaveAttribute("href", "https://en.wikipedia.org/wiki/Heaps%27_law");
+  await expect(card.getByRole("link", { name: /^Validation on 10 novels/ })).toBeVisible();
+  await card.getByRole("button", { name: "Linear" }).click();
+  await expect(card.getByText("Page", { exact: true }).first()).toBeVisible();
 
   await card.getByText("Show data").click();
   await expect(card.getByRole("row")).toHaveCount(1 + 4 + 1); // header, 4 sampled, projected

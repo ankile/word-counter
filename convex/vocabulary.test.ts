@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   computeVocabularyStats,
+  fitQuality,
   fitGrowthCurve,
   growthCurveAt,
   growthCurveMarginal,
@@ -38,6 +39,16 @@ describe("growth curve", () => {
     expect(c).toBeCloseTo(truth[2], 6);
   });
 
+  test("fit quality is perfect on an exact curve and reports the worst residual otherwise", () => {
+    const truth: [number, number, number] = [5, 0.8, -0.02];
+    const exact = Array.from({ length: 10 }, (_, i) => growthCurveAt(truth, i + 1));
+    expect(fitQuality(truth, exact).r2).toBeCloseTo(1, 10);
+    expect(fitQuality(truth, exact).maxResidualPercent).toBeCloseTo(0, 10);
+    const bumped = exact.map((v, i) => (i === 4 ? v * 1.1 : v));
+    expect(fitQuality(truth, bumped).maxResidualPercent).toBeCloseTo(10, 6);
+    expect(fitQuality(truth, bumped).r2).toBeLessThan(1);
+  });
+
   test("holds vocabulary flat past the curve's peak instead of letting it shrink", () => {
     const bending: [number, number, number] = [5, 1, -0.2]; // peaks at log k = 2.5
     expect(growthCurveAt(bending, 1000)).toBeCloseTo(growthCurveAt(bending, Math.exp(2.5)));
@@ -69,6 +80,11 @@ describe("computeVocabularyStats", () => {
     expect(uniqueWords).toBeGreaterThan(stats.seenUniqueWords);
     expect(low).toBeLessThan(uniqueWords);
     expect(high).toBeGreaterThan(uniqueWords);
+    expect(stats.fitQuality.r2).toBeGreaterThan(0.99);
+    // The range uses whichever uncertainty is larger
+    const { leaveOneOutPercent, calibratedPercent } = stats.projection!;
+    expect(Math.max(leaveOneOutPercent, calibratedPercent)).toBeGreaterThan(0);
+    expect(calibratedPercent).toBeCloseTo(100 * (Math.exp(0.72 / Math.sqrt(12)) - 1), 6);
   });
 
   test("skips the projection without the book's page count", () => {

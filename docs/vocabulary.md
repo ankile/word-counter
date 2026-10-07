@@ -4,6 +4,23 @@ Each book page shows an estimate of how many distinct words the whole book uses,
 photographed. It needs at least 4 processed pages and the book's page count from Book Tracker.
 Code: `convex/vocabulary.ts` (math), `src/app/components/VocabularyCard.tsx` (card and chart).
 
+## What the card shows
+
+- The projected unique words with its 95% range, words seen so far, and the current growth exponent.
+- Two charts on a shared page axis (log or linear): **unique words so far** (sampled points, fitted curve,
+  dashed projection, and the 95% range as a bar at the last page) and **new unique words per page**.
+  Hovering either chart moves a crosshair on both.
+- The fitted equation, V(k) = eᵃ · k^(b + c·ln k), and fit measures:
+  - **R² (log-log)** and **RMS / max residual**: how closely the curve follows the sampled points. These are
+    near-perfect by construction, since the points are a smooth rarefied curve, so they say little about the
+    extrapolation.
+  - **Leave-one-page-out**: how much the projection moves when any one page is dropped (jackknife, ±1 sd).
+  - **Error on 10 novels**: the typical error measured at this many pages, 0.72/√n in log terms (±1 sd).
+    The 95% range uses 1.96 × the larger of the two.
+- "How is this estimated?": a plain-language explanation with links to Heaps' law, rarefaction and the
+  jackknife on Wikipedia, Gerlach & Altmann (2013, Phys. Rev. X 3, 021006; arXiv:1212.1362) on vocabulary
+  growth slowing in large texts, and this document.
+
 ## Method
 
 1. **Word forms.** Lowercased runs of letters; inner apostrophes are kept (`don't`); hyphenated words split

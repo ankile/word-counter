@@ -88,6 +88,20 @@ function fitPages(pages: Set<string>[]) {
   return { rarefied, fit: fitGrowthCurve(rarefied.map((y, i) => ({ x: i + 1, y }))) };
 }
 
+/** How well the curve matches the rarefied points it was fitted to (residuals in log space). */
+export function fitQuality(curve: GrowthCurve, rarefied: number[]) {
+  const logs = rarefied.map(Math.log);
+  const residuals = logs.map((y, i) => y - Math.log(growthCurveAt(curve, i + 1)));
+  const mean = logs.reduce((s, y) => s + y, 0) / logs.length;
+  const ssRes = residuals.reduce((s, r) => s + r * r, 0);
+  const ssTot = logs.reduce((s, y) => s + (y - mean) ** 2, 0);
+  return {
+    r2: 1 - ssRes / ssTot,
+    rmsResidualPercent: 100 * (Math.exp(Math.sqrt(ssRes / residuals.length)) - 1),
+    maxResidualPercent: 100 * Math.max(...residuals.map((r) => Math.abs(Math.exp(r) - 1))),
+  };
+}
+
 export function computeVocabularyStats(pageTexts: string[], totalPages: number | undefined) {
   const n = pageTexts.length;
   if (n < MIN_VOCABULARY_PAGES) return null;
@@ -103,12 +117,16 @@ export function computeVocabularyStats(pageTexts: string[], totalPages: number |
     );
     const meanLoo = leaveOneOut.reduce((s, x) => s + x, 0) / n;
     const jackknifeSd = Math.sqrt(((n - 1) / n) * leaveOneOut.reduce((s, x) => s + (x - meanLoo) ** 2, 0));
-    const sd = Math.max(jackknifeSd, CALIBRATED_LOG_SD / Math.sqrt(n));
+    const calibratedSd = CALIBRATED_LOG_SD / Math.sqrt(n);
+    const sd = Math.max(jackknifeSd, calibratedSd);
     projection = {
       totalPages,
       uniqueWords: Math.round(Math.exp(logEstimate)),
       low: Math.round(Math.exp(logEstimate - Z_95 * sd)),
       high: Math.round(Math.exp(logEstimate + Z_95 * sd)),
+      // One-sd uncertainty as ±%: from leaving out each page, and as measured on full novels
+      leaveOneOutPercent: 100 * (Math.exp(jackknifeSd) - 1),
+      calibratedPercent: 100 * (Math.exp(calibratedSd) - 1),
     };
   }
 
@@ -124,6 +142,7 @@ export function computeVocabularyStats(pageTexts: string[], totalPages: number |
       marginal: Math.round((cumulative - (i > 0 ? rarefied[i - 1] : 0)) * 10) / 10,
     })),
     curve: fit,
+    fitQuality: fitQuality(fit, rarefied),
     // Local Heaps exponent d log V / d log k at the last sampled page (1 = every word new, 0 = none)
     growthExponent: Math.round((b + 2 * c * Math.log(n)) * 1000) / 1000,
     projection,
