@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ConvexClientProvider } from "./components/ConvexClientProvider";
+import { Providers } from "./components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Word Counter",
   description: "Count words from book pages using OCR",
+  appleWebApp: { capable: true, title: "Word Counter", statusBarStyle: "default" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({
@@ -28,7 +33,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

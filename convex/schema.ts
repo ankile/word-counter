@@ -4,15 +4,19 @@ import { boundingBox, pageStatus, readability } from "./validators";
 
 export default defineSchema({
   books: defineTable({
+    // Firebase Auth UID of the Book Tracker user who owns this book
+    ownerId: v.string(),
     title: v.string(),
     author: v.optional(v.string()),
     createdAt: v.number(),
-    // Total pages in the book (from Firebase or manual entry)
+    // Total pages in the book, from Book Tracker
     totalPages: v.optional(v.number()),
-    // Firebase integration fields
-    firebaseId: v.optional(v.string()),
-    firebaseUserId: v.optional(v.string()),
-  }).index("by_firebase_id", ["firebaseId"]),
+    // Book Tracker document ID (users/{ownerId}/books/{trackerBookId}); absent for books created here
+    trackerBookId: v.optional(v.string()),
+    finished: v.optional(v.boolean()),
+    // Tracker last-read time, or when it was added if never read; orders the library
+    activityAt: v.optional(v.number()),
+  }).index("by_owner_and_tracker_book_id", ["ownerId", "trackerBookId"]),
 
   pages: defineTable({
     bookId: v.id("books"),

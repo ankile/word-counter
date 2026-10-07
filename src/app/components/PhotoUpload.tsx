@@ -4,7 +4,11 @@ import { useMutation } from "convex/react";
 import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { PhotoIcon, PlusIcon, SpinnerIcon } from "./icons";
+import { resizeImage } from "../lib/resizeImage";
+import { CameraIcon, PhotoIcon, SpinnerIcon } from "./icons";
+
+const buttonClass =
+  "inline-flex items-center px-5 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-blue-700 transition-colors shadow-sm";
 
 export function PhotoUpload({ bookId }: { bookId: Id<"books"> }) {
   const generateUploadUrl = useMutation(api.pages.generateUploadUrl);
@@ -14,10 +18,11 @@ export function PhotoUpload({ bookId }: { bookId: Id<"books"> }) {
   const [isDragging, setIsDragging] = useState(false);
 
   const uploadFile = async (file: File): Promise<Id<"_storage">> => {
+    const image = await resizeImage(file);
     const response = await fetch(await generateUploadUrl(), {
       method: "POST",
-      headers: { "Content-Type": file.type },
-      body: file,
+      headers: { "Content-Type": image.type },
+      body: image,
     });
     const { storageId } = await response.json();
     setProgress((p) => p && { ...p, done: p.done + 1 });
@@ -32,6 +37,11 @@ export function PhotoUpload({ bookId }: { bookId: Id<"books"> }) {
     const imageStorageIds = await Promise.all(Array.from(files).map(uploadFile));
     await createPages({ bookId, imageStorageIds });
     setProgress(null);
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleUpload(e.target.files);
+    e.target.value = "";
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -83,22 +93,24 @@ export function PhotoUpload({ bookId }: { bookId: Id<"books"> }) {
             <PhotoIcon className="w-6 h-6 text-slate-400" />
           </div>
           <div className="text-slate-600 mb-4">
-            <span className="font-medium">Drop photos here</span> or click to browse
+            <span className="hidden sm:inline">
+              <span className="font-medium">Drop photos here</span> or click to browse
+            </span>
+            <span className="sm:hidden">Photograph a few pages to estimate the word count</span>
           </div>
-          <label className="inline-flex items-center px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-blue-700 transition-colors shadow-sm">
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => {
-                handleUpload(e.target.files);
-                e.target.value = "";
-              }}
-              className="hidden"
-            />
-            <PlusIcon className="w-4 h-4 mr-2" />
-            Select Photos
-          </label>
+          <div className="flex flex-wrap justify-center gap-3">
+            {/* capture opens the rear camera directly on phones */}
+            <label className={`${buttonClass} sm:hidden`}>
+              <input type="file" accept="image/*" capture="environment" onChange={handleInput} className="hidden" />
+              <CameraIcon className="w-4 h-4 mr-2" />
+              Take Photo
+            </label>
+            <label className={buttonClass}>
+              <input type="file" accept="image/*" multiple onChange={handleInput} className="hidden" />
+              <PhotoIcon className="w-4 h-4 mr-2" />
+              Choose Photos
+            </label>
+          </div>
           <p className="mt-4 text-sm text-slate-400">Supports JPG, PNG, HEIC • Multiple files allowed</p>
         </>
       )}

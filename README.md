@@ -7,7 +7,8 @@ A web app to photograph book pages, extract text via OCR, and count words. Desig
 ## Features
 
 - **Book Management** - Create and organize books
-- **Firebase Import** - Import books from Book Tracker app
+- **Book Tracker Sync** - Sign in with your [Book Tracker](https://book.ankile.com) account; your library syncs automatically
+- **Phone-friendly** - Take page photos straight from the camera (photos are downscaled before upload); add to your home screen
 - **Photo Upload** - Drag & drop or select multiple page photos (mobile camera supported)
 - **OCR Processing** - Google Cloud Vision extracts text from images
 - **Word Counting** - Per-page and total word counts with averages
@@ -19,6 +20,7 @@ A web app to photograph book pages, extract text via OCR, and count words. Desig
 
 - **Frontend**: Next.js 16 + React 19 (React Compiler) + Tailwind CSS 4
 - **Backend**: Convex (database + file storage + scheduled OCR actions)
+- **Auth & library**: Book Tracker's Firebase project (Firebase Auth + Firestore, App Check via reCAPTCHA Enterprise)
 - **OCR**: Google Cloud Vision API
 - **Hosting**: Vercel
 
@@ -56,13 +58,15 @@ Add it to Convex:
 npx convex env set GCP_VISION_API_KEY "your-api-key-here"
 ```
 
-### 4. (Optional) Firebase Integration
+### 4. Book Tracker integration
 
-To import books from a Firebase/Firestore Book Tracker app:
+Users sign in with their Book Tracker (Firebase Auth) account. The browser reads the user's
+`users/{uid}/books` from Firestore under Book Tracker's own security rules and mirrors it into
+Convex; Convex verifies the Firebase ID token (`convex/auth.config.ts`) and scopes every book to its owner.
 
-```bash
-npx convex env set FIREBASE_SERVICE_ACCOUNT_KEY "$(cat path/to/serviceAccountKey.json)"
-```
+The `word-counter` web app is registered in the `book-tracker-d8f24` Firebase project with its own
+reCAPTCHA Enterprise key (`word-counter-appcheck`, allowed on `word-counter.ankile.com` and `localhost`)
+because Book Tracker enforces App Check on Auth and Firestore. Config lives in `src/app/lib/firebase.ts`.
 
 ### 5. Run Development Server
 
@@ -106,9 +110,9 @@ git push origin main
 
 ## Usage
 
-1. Click **+ New Book** to create a book (or import from Book Tracker)
-2. Click on the book to open it
-3. Upload photos of book pages (drag & drop or click to select)
+1. Sign in with your Book Tracker account; your books sync automatically
+2. Search or filter, then open a book
+3. Take photos of a few pages (or choose/drop photos)
 4. Watch OCR process each page in real-time
 5. View word counts per page and total for the book
 6. Check readability metrics (grade level, reading ease)

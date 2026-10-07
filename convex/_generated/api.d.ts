@@ -8,9 +8,8 @@
  * @module
  */
 
-import type * as bookTracker from "../bookTracker.js";
+import type * as auth from "../auth.js";
 import type * as books from "../books.js";
-import type * as firebase from "../firebase.js";
 import type * as ocr from "../ocr.js";
 import type * as ocrAction from "../ocrAction.js";
 import type * as pages from "../pages.js";
@@ -25,9 +24,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  bookTracker: typeof bookTracker;
+  auth: typeof auth;
   books: typeof books;
-  firebase: typeof firebase;
   ocr: typeof ocr;
   ocrAction: typeof ocrAction;
   pages: typeof pages;

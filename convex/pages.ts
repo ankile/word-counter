@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { requireOwnedBook, requireOwnedPage, requireUserId } from "./auth";
 
 /** All pages of a book, ordered by page number. */
 export async function pagesForBook(ctx: QueryCtx, bookId: Id<"books">) {
@@ -19,6 +20,7 @@ export async function deletePage(ctx: MutationCtx, page: Doc<"pages">) {
 export const listByBook = query({
   args: { bookId: v.id("books") },
   handler: async (ctx, args) => {
+    await requireOwnedBook(ctx, args.bookId);
     const pages = await pagesForBook(ctx, args.bookId);
     return await Promise.all(
       pages.map(async (page) => ({ ...page, imageUrl: await ctx.storage.getUrl(page.imageStorageId) }))
@@ -29,6 +31,7 @@ export const listByBook = query({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    await requireUserId(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -40,6 +43,7 @@ export const createMany = mutation({
     imageStorageIds: v.array(v.id("_storage")),
   },
   handler: async (ctx, args) => {
+    await requireOwnedBook(ctx, args.bookId);
     const lastPage = await ctx.db
       .query("pages")
       .withIndex("by_book_and_page_number", (q) => q.eq("bookId", args.bookId))
@@ -63,11 +67,11 @@ export const createMany = mutation({
 export const reprocess = mutation({
   args: { id: v.id("pages") },
   handler: async (ctx, args) => {
-    const page = await ctx.db.get("pages", args.id);
+    const page = await requireOwnedPage(ctx, args.id);
     await ctx.db.patch("pages", args.id, { status: "pending" });
     await ctx.scheduler.runAfter(0, internal.ocrAction.processPage, {
       pageId: args.id,
-      imageStorageId: page!.imageStorageId,
+      imageStorageId: page.imageStorageId,
     });
   },
 });
@@ -75,7 +79,6 @@ export const reprocess = mutation({
 export const remove = mutation({
   args: { id: v.id("pages") },
   handler: async (ctx, args) => {
-    const page = await ctx.db.get("pages", args.id);
-    await deletePage(ctx, page!);
+    await deletePage(ctx, await requireOwnedPage(ctx, args.id));
   },
 });

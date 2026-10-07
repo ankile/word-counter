@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { use } from "react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -24,6 +25,15 @@ const backLink = (
 export default function BookPage({ params }: PageProps<"/books/[id]">) {
   const bookId = use(params).id as Id<"books">;
   const book = useQuery(api.books.get, { id: bookId });
+  const removeBook = useMutation(api.books.remove);
+  const router = useRouter();
+
+  const handleDelete = async () => {
+    if (confirm("Delete this book and all its pages?")) {
+      router.push("/");
+      await removeBook({ id: bookId });
+    }
+  };
 
   if (book === undefined) {
     return (
@@ -67,6 +77,16 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
           ))}
         </div>
 
+        <div className="mt-6">
+          <PhotoUpload bookId={bookId} />
+        </div>
+
+        {book.samplingStats && (
+          <div className="mt-6">
+            <SampleConfidence stats={book.samplingStats} totalBookPages={book.totalPages} />
+          </div>
+        )}
+
         {readability && (
           <div className="mt-6 bg-white rounded-xl border border-slate-200 p-5">
             <h3 className="text-sm font-semibold text-slate-900 mb-4">Readability Analysis</h3>
@@ -90,18 +110,7 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
             </div>
           </div>
         )}
-
-        {book.samplingStats && (
-          <div className="mt-6">
-            <SampleConfidence stats={book.samplingStats} totalBookPages={book.totalPages} />
-          </div>
-        )}
       </div>
-
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Upload Photos</h2>
-        <PhotoUpload bookId={bookId} />
-      </section>
 
       <section>
         <h2 className="text-lg font-semibold text-slate-900 mb-4">
@@ -114,6 +123,15 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
         </h2>
         <PageList bookId={bookId} />
       </section>
+
+      {!book.trackerBookId && (
+        <button
+          onClick={handleDelete}
+          className="mt-8 text-sm text-slate-400 hover:text-red-600 transition-colors"
+        >
+          Delete book
+        </button>
+      )}
     </AppShell>
   );
 }
