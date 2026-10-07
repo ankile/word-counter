@@ -5,6 +5,16 @@
   --color-foreground: #0f172a;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --animate-flash: flash 250ms ease-out forwards;
+
+  @keyframes flash {
+    from {
+      opacity: 0.8;
+    }
+    to {
+      opacity: 0;
+    }
+  }
 }
 
 body {

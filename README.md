@@ -7,7 +7,8 @@ A web app to photograph book pages, extract text via OCR, and count words. Desig
 ## Features
 
 - **Book Tracker Sync** - Sign in with your [Book Tracker](https://book.ankile.com) account; your library syncs automatically
-- **Phone-friendly** - Take page photos straight from the camera (photos are downscaled before upload); add to your home screen
+- **Scan Pages** - On phones, a full-screen camera for snapping page after page; each shot uploads in the background while you take the next
+- **Phone-friendly** - Photos are downscaled before upload; add the site to your home screen
 - **Photo Upload** - Drag & drop or select multiple page photos
 - **OCR Processing** - Google Cloud Vision extracts text from images
 - **Word Counting** - Per-page and total word counts with averages
@@ -120,7 +121,7 @@ git push origin main
 
 1. Sign in with your Book Tracker account; your books sync automatically
 2. Search or filter, then open a book
-3. Take photos of a few pages (or choose/drop photos)
+3. Tap **Scan Pages** and photograph several pages back to back (or choose/drop photos)
 4. Watch OCR process each page in real-time
 5. View word counts per page and total for the book
 6. Check readability metrics (grade level, reading ease)
@@ -132,6 +133,7 @@ git push origin main
 The OCR output is cleaned with light heuristics:
 - Removes standalone page numbers
 - Removes short all-caps lines (headers)
+- Removes running headers that match the book's title or author (with or without a page number)
 - Rejoins hyphenated words at line breaks
 
 ## License

@@ -12,6 +12,11 @@ export async function pagesForBook(ctx: QueryCtx, bookId: Id<"books">) {
     .collect();
 }
 
+/** Header lines a page of this book may carry (title on one side, author on the other). */
+export function runningHeaders(book: Doc<"books">): string[] {
+  return [book.title, ...(book.author?.split(", ") ?? [])];
+}
+
 export async function deletePage(ctx: MutationCtx, page: Doc<"pages">) {
   await ctx.storage.delete(page.imageStorageId);
   await ctx.db.delete("pages", page._id);
@@ -43,7 +48,7 @@ export const createMany = mutation({
     imageStorageIds: v.array(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    await requireOwnedBook(ctx, args.bookId);
+    const book = await requireOwnedBook(ctx, args.bookId);
     const lastPage = await ctx.db
       .query("pages")
       .withIndex("by_book_and_page_number", (q) => q.eq("bookId", args.bookId))
@@ -59,7 +64,11 @@ export const createMany = mutation({
         status: "pending",
         createdAt: Date.now(),
       });
-      await ctx.scheduler.runAfter(0, internal.ocrAction.processPage, { pageId, imageStorageId });
+      await ctx.scheduler.runAfter(0, internal.ocrAction.processPage, {
+        pageId,
+        imageStorageId,
+        runningHeaders: runningHeaders(book),
+      });
     }
   },
 });
@@ -68,10 +77,12 @@ export const reprocess = mutation({
   args: { id: v.id("pages") },
   handler: async (ctx, args) => {
     const page = await requireOwnedPage(ctx, args.id);
+    const book = await requireOwnedBook(ctx, page.bookId);
     await ctx.db.patch("pages", args.id, { status: "pending" });
     await ctx.scheduler.runAfter(0, internal.ocrAction.processPage, {
       pageId: args.id,
       imageStorageId: page.imageStorageId,
+      runningHeaders: runningHeaders(book),
     });
   },
 });

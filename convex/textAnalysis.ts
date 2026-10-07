@@ -4,19 +4,31 @@
 
 import type { Readability } from "./validators";
 
+// Lowercase letters/digits/spaces only, with page numbers at either end removed
+const normalizeHeader = (line: string) =>
+  line
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[^a-z0-9' ]+/g, " ")
+    .replace(/^[\d\s]+|[\d\s]+$/g, "")
+    .replace(/\s+/g, " ");
+
 /**
  * Clean raw OCR output with light heuristics:
  * - Rejoin hyphenated words at line breaks ("well-\nfunded" → "well-funded")
  * - Drop lines that are just numbers (page numbers)
  * - Drop short all-caps lines (running headers like "300 VIRAL BA")
+ * - Drop running headers: lines that are the book's title or an author's name, optionally with a page number
  */
-export function cleanOcrText(rawText: string): string {
+export function cleanOcrText(rawText: string, runningHeaders: string[] = []): string {
+  const headers = new Set(runningHeaders.map(normalizeHeader).filter((h) => h.length > 0));
   return rawText
     .replace(/-\n(\S)/g, "-$1")
     .split("\n")
     .filter((line) => {
       const trimmed = line.trim();
       if (/^\d+$/.test(trimmed)) return false;
+      if (headers.has(normalizeHeader(trimmed))) return false;
       const isShortAllCaps =
         trimmed.length < 30 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
       return !isShortAllCaps;

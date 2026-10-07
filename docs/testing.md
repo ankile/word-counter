@@ -59,6 +59,8 @@ screenshots and traces in `test-results/`; open the HTML report with `npx playwr
 - **Page photos.** `e2e/fixtures/page-{1,2}.png` are rendered public-domain pages with known word counts (122 and
   115 after the header and page number are cleaned off). Regenerate them with `node e2e/fixtures/renderPages.ts`
   after editing `e2e/fixtures/pages.ts`. The suite runs real Google Vision OCR (a few requests per run).
+- **Scanner test.** The in-app camera (`PageScanner`) is driven by a stand-in `getUserMedia` that streams a canvas
+  showing whichever fixture page the test sets, so the iPhone project can snap two pages back to back.
 - **Local runs** push the working tree's Convex functions to the dev deployment (`e2e/globalSetup.ts` runs
   `npx convex dev --once`) and start `next dev` on port 3100, or reuse one that's already running.
 

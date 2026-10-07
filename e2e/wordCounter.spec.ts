@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { cleanOcrText, countWords } from "../convex/textAnalysis.ts";
 import { EXPECTED_LIBRARY_A } from "./fixtures/library.ts";
 import { PAGES } from "./fixtures/pages.ts";
@@ -145,15 +146,47 @@ test("accounts only see their own books", async ({ page }) => {
   await expect(page.getByText("Book not found")).toBeVisible();
 });
 
-test("phones get a camera button that opens the rear camera", async ({ page, isMobile }) => {
+test("phones scan several pages back to back with the in-app camera", async ({ page, isMobile }) => {
   await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length);
   await page.getByRole("link", { name: /^Foundation/ }).click();
-  const takePhoto = page.locator("label", { hasText: "Take Photo" });
-  if (isMobile) {
-    await expect(takePhoto).toBeVisible();
-    await expect(takePhoto.locator("input")).toHaveAttribute("capture", "environment");
-  } else {
-    await expect(takePhoto).toBeHidden();
-  }
+  const scanButton = page.getByRole("button", { name: "Scan Pages" });
   await expect(page.locator("label", { hasText: "Choose Photos" })).toBeVisible();
+  if (!isMobile) {
+    await expect(scanButton).toBeHidden();
+    return;
+  }
+
+  // Stand-in camera: a canvas stream showing whichever fixture page the test puts in front of it
+  await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1000;
+    canvas.height = 1400;
+    const context = canvas.getContext("2d")!;
+    const image = new Image();
+    (window as unknown as { showPage: (src: string) => void }).showPage = (src) => (image.src = src);
+    setInterval(() => image.naturalWidth && context.drawImage(image, 0, 0), 50);
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: { getUserMedia: async () => canvas.captureStream(20) },
+    });
+  });
+  const showPage = async (i: number) => {
+    const src = `data:image/png;base64,${readFileSync(PAGE_FILES[i]).toString("base64")}`;
+    await page.evaluate((s) => (window as unknown as { showPage: (src: string) => void }).showPage(s), src);
+    await page.waitForTimeout(300); // let a few frames of the new page through
+  };
+
+  await showPage(0);
+  await scanButton.click();
+  const shutter = page.getByRole("button", { name: "Capture page" });
+  await expect(shutter).toBeEnabled();
+  await shutter.click();
+  await expect(page.getByText(/^1 page/)).toBeVisible();
+  await showPage(1);
+  await shutter.click();
+  await expect(page.getByText("2 pages · all uploaded")).toBeVisible({ timeout: 60_000 });
+  await page.getByRole("button", { name: "Done" }).click();
+
+  await expect(page.getByText("Done", { exact: true })).toHaveCount(2, { timeout: 90_000 });
+  const counts = await wordCountsOnPage(page);
+  counts.forEach((count, i) => expect(Math.abs(count - EXPECTED_WORDS[i])).toBeLessThanOrEqual(WORD_TOLERANCE));
 });

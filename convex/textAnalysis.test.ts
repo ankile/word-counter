@@ -7,6 +7,15 @@ describe("cleanOcrText", () => {
     expect(cleanOcrText(raw)).toBe("The company was well-funded and grew.");
   });
 
+  test("drops running headers matching the book's title or author, with or without a page number", () => {
+    const raw = "Patrick Rothfuss\nfor a long moment.\n\nThe Wise Man\u2019s Fear 45\nHe sang.\n12 Patrick Rothfuss";
+    expect(cleanOcrText(raw, ["The Wise Man's Fear", "Patrick Rothfuss"])).toBe("for a long moment.\n\nHe sang.");
+    // Lines that merely mention the title stay
+    expect(cleanOcrText("He read The Wise Man's Fear twice.", ["The Wise Man's Fear"])).toBe(
+      "He read The Wise Man's Fear twice."
+    );
+  });
+
   test("keeps long all-caps lines and mixed-case short lines", () => {
     const longCaps = "THIS IS A LONG SHOUTED SENTENCE IN THE BODY TEXT";
     expect(cleanOcrText(`${longCaps}\nShort line`)).toBe(`${longCaps}\nShort line`);

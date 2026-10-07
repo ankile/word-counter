@@ -1,41 +1,27 @@
 "use client";
 
-import { useMutation } from "convex/react";
 import { useState } from "react";
-import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { resizeImage } from "../lib/resizeImage";
+import { useUploadPages } from "../lib/useUploadPages";
 import { CameraIcon, PhotoIcon, SpinnerIcon } from "./icons";
+import { PageScanner } from "./PageScanner";
 
 const buttonClass =
   "inline-flex items-center px-5 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-blue-700 transition-colors shadow-sm";
 
 export function PhotoUpload({ bookId }: { bookId: Id<"books"> }) {
-  const generateUploadUrl = useMutation(api.pages.generateUploadUrl);
-  const createPages = useMutation(api.pages.createMany);
+  const uploadPages = useUploadPages(bookId);
   // null when idle
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-
-  const uploadFile = async (file: File): Promise<Id<"_storage">> => {
-    const image = await resizeImage(file);
-    const response = await fetch(await generateUploadUrl(), {
-      method: "POST",
-      headers: { "Content-Type": image.type },
-      body: image,
-    });
-    const { storageId } = await response.json();
-    setProgress((p) => p && { ...p, done: p.done + 1 });
-    return storageId;
-  };
+  const [scanning, setScanning] = useState(false);
 
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
     setProgress({ done: 0, total: files.length });
-    // Upload in parallel; pages are numbered in selection order
-    const imageStorageIds = await Promise.all(Array.from(files).map(uploadFile));
-    await createPages({ bookId, imageStorageIds });
+    // Pages are numbered in selection order
+    await uploadPages(Array.from(files), () => setProgress((p) => p && { ...p, done: p.done + 1 }));
     setProgress(null);
   };
 
@@ -69,6 +55,7 @@ export function PhotoUpload({ bookId }: { bookId: Id<"books"> }) {
             : "border-slate-200 hover:border-slate-300"
       }`}
     >
+      {scanning && <PageScanner bookId={bookId} onClose={() => setScanning(false)} />}
       {progress ? (
         <div className="space-y-4">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100">
@@ -99,19 +86,20 @@ export function PhotoUpload({ bookId }: { bookId: Id<"books"> }) {
             <span className="sm:hidden">Photograph a few pages to estimate the word count</span>
           </div>
           <div className="flex flex-wrap justify-center gap-3">
-            {/* capture opens the rear camera directly on phones */}
-            <label className={`${buttonClass} sm:hidden`}>
-              <input type="file" accept="image/*" capture="environment" onChange={handleInput} className="hidden" />
+            <button onClick={() => setScanning(true)} className={`${buttonClass} sm:hidden`}>
               <CameraIcon className="w-4 h-4 mr-2" />
-              Take Photo
-            </label>
+              Scan Pages
+            </button>
             <label className={buttonClass}>
               <input type="file" accept="image/*" multiple onChange={handleInput} className="hidden" />
               <PhotoIcon className="w-4 h-4 mr-2" />
               Choose Photos
             </label>
           </div>
-          <p className="mt-4 text-sm text-slate-400">Supports JPG, PNG, HEIC • Multiple files allowed</p>
+          <p className="mt-4 text-sm text-slate-400">
+            <span className="sm:hidden">Scan Pages lets you snap page after page without leaving the camera</span>
+            <span className="hidden sm:inline">Supports JPG, PNG, HEIC • Multiple files allowed</span>
+          </p>
         </>
       )}
     </div>

@@ -16,7 +16,7 @@ interface VisionResponse {
 }
 
 export const processPage = internalAction({
-  args: { pageId: v.id("pages"), imageStorageId: v.id("_storage") },
+  args: { pageId: v.id("pages"), imageStorageId: v.id("_storage"), runningHeaders: v.array(v.string()) },
   handler: async (ctx, args) => {
     await ctx.runMutation(internal.ocr.updatePageStatus, { id: args.pageId, status: "processing" });
 
@@ -42,7 +42,7 @@ export const processPage = internalAction({
 
     // First annotation is the full text, the rest are individual words
     const [fullText, ...words] = ((await visionResponse.json()) as VisionResponse).responses[0].textAnnotations ?? [];
-    const extractedText = cleanOcrText(fullText?.description ?? "");
+    const extractedText = cleanOcrText(fullText?.description ?? "", args.runningHeaders);
     const wordCount = countWords(extractedText);
 
     await ctx.runMutation(internal.ocr.updatePageStatus, {
