@@ -35,7 +35,11 @@ export const list = query({
 export const get = query({
   args: { id: v.id("books") },
   handler: async (ctx, args) => {
-    const book = await requireOwnedBook(ctx, args.id);
+    const ownerId = await requireUserId(ctx);
+    const book = await ctx.db.get("books", args.id);
+    // Someone else's book is indistinguishable from a missing one
+    if (!book || book.ownerId !== ownerId) return null;
+
     const pages = await pagesForBook(ctx, args.id);
     const processed = pages.filter((p) => p.status === "done");
 

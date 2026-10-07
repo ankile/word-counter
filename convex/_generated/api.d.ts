@@ -14,6 +14,7 @@ import type * as ocr from "../ocr.js";
 import type * as ocrAction from "../ocrAction.js";
 import type * as pages from "../pages.js";
 import type * as stats from "../stats.js";
+import type * as testing from "../testing.js";
 import type * as textAnalysis from "../textAnalysis.js";
 import type * as validators from "../validators.js";
 
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   ocrAction: typeof ocrAction;
   pages: typeof pages;
   stats: typeof stats;
+  testing: typeof testing;
   textAnalysis: typeof textAnalysis;
   validators: typeof validators;
 }>;

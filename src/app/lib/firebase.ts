@@ -15,6 +15,12 @@ const app = initializeApp({
 
 // Book Tracker enforces App Check on Auth and Firestore. This site key allows word-counter.ankile.com and localhost.
 if (typeof window !== "undefined") {
+  // Local dev/e2e: a registered debug token (in the gitignored .env.local) stands in for reCAPTCHA,
+  // which headless browsers can't reliably pass. Production builds never include it.
+  if (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_APPCHECK_DEBUG_TOKEN) {
+    (self as { FIREBASE_APPCHECK_DEBUG_TOKEN?: string }).FIREBASE_APPCHECK_DEBUG_TOKEN =
+      process.env.NEXT_PUBLIC_APPCHECK_DEBUG_TOKEN;
+  }
   initializeAppCheck(app, {
     provider: new ReCaptchaEnterpriseProvider("6LdUCOMtAAAAAEkvlPOGGHnNefhflkHN7X_O4gln"),
     isTokenAutoRefreshEnabled: true,
