@@ -6,24 +6,35 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit && tsc --noEmit -p convex",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "deploy:convex": "convex deploy"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.0",
-    "convex": "^1.31.5",
-    "firebase-admin": "^13.6.0",
-    "next": "16.1.2",
-    "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "@opentelemetry/api": "^1.9.1",
+    "convex": "^1.46.0",
+    "firebase-admin": "^14.5.0",
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.1.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@convex-dev/eslint-plugin": "^5.0.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "eslint": "^10.12.0",
+    "eslint-config-next": "^16.4.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

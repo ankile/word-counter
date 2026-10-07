@@ -17,8 +17,8 @@ A web app to photograph book pages, extract text via OCR, and count words. Desig
 
 ## Tech Stack
 
-- **Frontend**: Next.js 16 + React + Tailwind CSS
-- **Backend**: Convex (database + file storage + serverless functions)
+- **Frontend**: Next.js 16 + React 19 (React Compiler) + Tailwind CSS 4
+- **Backend**: Convex (database + file storage + scheduled OCR actions)
 - **OCR**: Google Cloud Vision API
 - **Hosting**: Vercel
 
@@ -26,7 +26,7 @@ A web app to photograph book pages, extract text via OCR, and count words. Desig
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - Google Cloud account with Vision API enabled
 - Convex account (free tier works)
 
@@ -78,6 +78,14 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
+### Checks
+
+```bash
+npm run check   # typecheck (TypeScript 7) + lint (ESLint + Convex rules) + tests (Vitest)
+```
+
+Required Convex environment variables are declared in `convex/convex.config.ts`; deploys fail if one is missing.
+
 ## Deployment
 
 The app is deployed to Vercel with automatic deploys from the `main` branch:
@@ -89,8 +97,8 @@ The app is deployed to Vercel with automatic deploys from the `main` branch:
 To deploy changes:
 
 ```bash
-# Deploy Convex functions
-npx convex deploy
+# Deploy Convex functions (before the frontend, so new API functions exist)
+npm run deploy:convex
 
 # Push to GitHub (triggers Vercel deploy)
 git push origin main

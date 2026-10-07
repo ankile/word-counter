@@ -1,6 +1,35 @@
 /**
- * Text analysis utilities for computing readability metrics.
+ * Text utilities: OCR cleanup, word counting, and readability metrics.
  */
+
+import type { Readability } from "./validators";
+
+/**
+ * Clean raw OCR output with light heuristics:
+ * - Rejoin hyphenated words at line breaks ("well-\nfunded" → "well-funded")
+ * - Drop lines that are just numbers (page numbers)
+ * - Drop short all-caps lines (running headers like "300 VIRAL BA")
+ */
+export function cleanOcrText(rawText: string): string {
+  return rawText
+    .replace(/-\n(\S)/g, "-$1")
+    .split("\n")
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (/^\d+$/.test(trimmed)) return false;
+      const isShortAllCaps =
+        trimmed.length < 30 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
+      return !isShortAllCaps;
+    })
+    .join("\n");
+}
+
+/**
+ * Count whitespace-separated tokens. This is the stored per-page word count.
+ */
+export function countWords(text: string): number {
+  return text.split(/\s+/).filter((word) => word.length > 0).length;
+}
 
 /**
  * Count syllables in a word using a simple heuristic.
@@ -13,7 +42,6 @@ function countSyllables(word: string): number {
   if (word.length === 0) return 0;
   if (word.length <= 3) return 1;
 
-  // Count vowel groups
   const vowelGroups = word.match(/[aeiouy]+/g);
   let count = vowelGroups ? vowelGroups.length : 1;
 
@@ -31,19 +59,17 @@ function countSyllables(word: string): number {
 }
 
 /**
- * Split text into sentences using common punctuation.
+ * Split text into sentences on . ! ? followed by whitespace or end of string.
  */
 function splitSentences(text: string): string[] {
-  // Split on . ! ? followed by space or end of string
-  const sentences = text
+  return text
     .split(/[.!?]+(?:\s+|$)/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-  return sentences.length > 0 ? sentences : [text];
 }
 
 /**
- * Split text into words.
+ * Split text into alphabetic words (punctuation and digits stripped).
  */
 function splitWords(text: string): string[] {
   return text
@@ -52,74 +78,43 @@ function splitWords(text: string): string[] {
     .filter((w) => w.length > 0);
 }
 
-export interface ReadabilityMetrics {
-  sentenceCount: number;
-  wordCount: number;
-  syllableCount: number;
-  avgWordsPerSentence: number;
-  avgSyllablesPerWord: number;
-  fleschReadingEase: number; // 0-100, higher = easier
-  fleschKincaidGrade: number; // US grade level
-  readingLevel: string; // Human-readable description
-}
+const round = (x: number, decimals: number) => Math.round(x * 10 ** decimals) / 10 ** decimals;
 
 /**
- * Analyze text and compute readability metrics.
+ * Analyze text and compute Flesch readability metrics.
  */
-export function analyzeText(text: string): ReadabilityMetrics {
-  const sentences = splitSentences(text);
+export function analyzeText(text: string): Readability {
   const words = splitWords(text);
-
-  const sentenceCount = sentences.length;
   const wordCount = words.length;
+  // Text without terminal punctuation still counts as one sentence
+  const sentenceCount = Math.max(1, splitSentences(text).length);
   const syllableCount = words.reduce((sum, word) => sum + countSyllables(word), 0);
 
-  // Avoid division by zero
-  const avgWordsPerSentence = sentenceCount > 0 ? wordCount / sentenceCount : 0;
+  const avgWordsPerSentence = wordCount / sentenceCount;
   const avgSyllablesPerWord = wordCount > 0 ? syllableCount / wordCount : 0;
 
-  // Flesch Reading Ease
-  // 206.835 - 1.015 * (words/sentences) - 84.6 * (syllables/words)
   const fleschReadingEase =
-    wordCount > 0 && sentenceCount > 0
-      ? Math.max(
-          0,
-          Math.min(
-            100,
-            206.835 - 1.015 * avgWordsPerSentence - 84.6 * avgSyllablesPerWord
-          )
-        )
+    wordCount > 0
+      ? Math.max(0, Math.min(100, 206.835 - 1.015 * avgWordsPerSentence - 84.6 * avgSyllablesPerWord))
       : 0;
-
-  // Flesch-Kincaid Grade Level
-  // 0.39 * (words/sentences) + 11.8 * (syllables/words) - 15.59
   const fleschKincaidGrade =
-    wordCount > 0 && sentenceCount > 0
-      ? Math.max(
-          0,
-          0.39 * avgWordsPerSentence + 11.8 * avgSyllablesPerWord - 15.59
-        )
-      : 0;
-
-  // Human-readable reading level
-  const readingLevel = getReadingLevel(fleschReadingEase);
+    wordCount > 0 ? Math.max(0, 0.39 * avgWordsPerSentence + 11.8 * avgSyllablesPerWord - 15.59) : 0;
 
   return {
     sentenceCount,
-    wordCount,
     syllableCount,
-    avgWordsPerSentence: Math.round(avgWordsPerSentence * 10) / 10,
-    avgSyllablesPerWord: Math.round(avgSyllablesPerWord * 100) / 100,
-    fleschReadingEase: Math.round(fleschReadingEase * 10) / 10,
-    fleschKincaidGrade: Math.round(fleschKincaidGrade * 10) / 10,
-    readingLevel,
+    avgWordsPerSentence: round(avgWordsPerSentence, 1),
+    avgSyllablesPerWord: round(avgSyllablesPerWord, 2),
+    fleschReadingEase: round(fleschReadingEase, 1),
+    fleschKincaidGrade: round(fleschKincaidGrade, 1),
+    readingLevel: getReadingLevel(fleschReadingEase),
   };
 }
 
 /**
  * Convert Flesch Reading Ease score to human-readable level.
  */
-function getReadingLevel(score: number): string {
+export function getReadingLevel(score: number): string {
   if (score >= 90) return "Very Easy (5th grade)";
   if (score >= 80) return "Easy (6th grade)";
   if (score >= 70) return "Fairly Easy (7th grade)";

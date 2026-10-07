@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { boundingBox, pageStatus, readability } from "./validators";
 
 export default defineSchema({
   books: defineTable({
@@ -19,39 +20,11 @@ export default defineSchema({
     pageNumber: v.number(),
     extractedText: v.optional(v.string()),
     wordCount: v.optional(v.number()),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("processing"),
-      v.literal("done"),
-      v.literal("error")
-    ),
+    status: pageStatus,
     error: v.optional(v.string()),
     createdAt: v.number(),
     // OCR bounding boxes for visualization
-    boundingBoxes: v.optional(
-      v.array(
-        v.object({
-          text: v.string(),
-          vertices: v.array(
-            v.object({
-              x: v.number(),
-              y: v.number(),
-            })
-          ),
-        })
-      )
-    ),
-    // Readability metrics
-    readability: v.optional(
-      v.object({
-        sentenceCount: v.number(),
-        syllableCount: v.number(),
-        avgWordsPerSentence: v.number(),
-        avgSyllablesPerWord: v.number(),
-        fleschReadingEase: v.number(),
-        fleschKincaidGrade: v.number(),
-        readingLevel: v.string(),
-      })
-    ),
-  }).index("by_book", ["bookId"]),
+    boundingBoxes: v.optional(v.array(boundingBox)),
+    readability: v.optional(readability),
+  }).index("by_book_and_page_number", ["bookId", "pageNumber"]),
 });
