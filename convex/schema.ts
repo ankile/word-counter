@@ -24,6 +24,9 @@ export default defineSchema({
     // Printed page numbers drawn uniformly from 1..totalPages, in draw order. A slot is open until a
     // random page with that bookPage exists.
     randomSlots: v.optional(v.array(v.number())),
+    // Slots drawn from the new pages when the page count grew. Until they're photographed the estimate rests on the
+    // old pages only, so sending waits for them.
+    growthSlots: v.optional(v.array(v.number())),
     // The last estimate sent to Book Tracker
     published: v.optional(v.object({ publishedAt: v.number(), measuredAt: v.string(), payload: wordEstimatePayload })),
   }).index("by_owner_and_tracker_book_id", ["ownerId", "trackerBookId"]),

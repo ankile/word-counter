@@ -15,6 +15,8 @@ export interface PublishInput {
   randomPages: number;
   // Done pages counted under an older COUNTING_VERSION
   stalePages: number;
+  // Open slots drawn from the new pages after the page count grew
+  openGrowthSlots: number;
   language: string;
   readability: ReturnType<typeof averageReadability>;
   vocabulary: VocabularyStats | null;
@@ -26,6 +28,11 @@ export function publishBlocker(input: PublishInput): string | null {
   if (input.totalPages === undefined) return "Set the page count in Book Tracker first";
   if (input.stalePages > 0) {
     return `Re-process ${input.stalePages} ${input.stalePages === 1 ? "page" : "pages"} counted under an older rule`;
+  }
+  // The estimate rests on the old pages only until the pages the book gained are sampled
+  if (input.openGrowthSlots > 0) {
+    const n = input.openGrowthSlots;
+    return `Photograph the ${n} random ${n === 1 ? "page" : "pages"} drawn when the page count grew`;
   }
   if (input.estimate?.sendable) return null;
   const needed = input.estimate?.randomPagesForSendable ?? Math.max(1, MIN_RANDOM_PAGES - input.randomPages);

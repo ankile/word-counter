@@ -96,6 +96,7 @@ export const get = query({
       estimate,
       randomPages: randomDone,
       stalePages: processed.filter((p) => p.countingVersion !== COUNTING_VERSION).length,
+      openGrowthSlots: openSlots.filter((slot) => book.growthSlots?.includes(slot)).length,
       language,
       readability,
       vocabulary,
@@ -178,6 +179,8 @@ export const replaceRandomSlot = mutation({
     const [fresh] = drawPages(book.totalPages!, slots, 1);
     await ctx.db.patch("books", book._id, {
       randomSlots: slots.flatMap((slot) => (slot !== args.bookPage ? [slot] : fresh === undefined ? [] : [fresh])),
+      // The fresh page comes from the whole book, so it doesn't hold sending back like a page-count-growth slot
+      growthSlots: book.growthSlots?.filter((slot) => slot !== args.bookPage),
     });
   },
 });
@@ -262,10 +265,17 @@ export const syncFromTracker = mutation({
         if (newTotal < oldTotal) {
           // Random pages past the new end no longer come from a uniform draw
           const { slots, demote } = shrinkSlots(current.randomSlots, await pagesForBook(ctx, current._id), newTotal);
-          await ctx.db.patch("books", current._id, { randomSlots: slots });
+          await ctx.db.patch("books", current._id, {
+            randomSlots: slots,
+            growthSlots: current.growthSlots?.filter((slot) => slot <= newTotal),
+          });
           for (const page of demote) await ctx.db.patch("pages", page._id, { origin: "chosen" });
         } else {
-          await ctx.db.patch("books", current._id, { randomSlots: growSlots(current.randomSlots, oldTotal, newTotal) });
+          const slots = growSlots(current.randomSlots, oldTotal, newTotal);
+          await ctx.db.patch("books", current._id, {
+            randomSlots: slots,
+            growthSlots: [...(current.growthSlots ?? []), ...slots.slice(current.randomSlots.length)],
+          });
         }
       }
     }
