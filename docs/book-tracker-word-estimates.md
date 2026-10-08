@@ -238,10 +238,13 @@ interface SetWordEstimateRequest {
 interface SetWordEstimateResponse { stored: true; measuredAt: string }  // ISO timestamp
 ```
 
-The server requires a verified email and App Check (the same as the other catalog callables). It checks that the
-caller owns `bookId` and that the book is linked to `editionId`; otherwise it rejects with `failed-precondition`. It
-rejects margins wider than ±20%, validates ranges, then writes `catalogEditions/{editionId}.wordEstimate` with
-`createdBy` and `measuredAt`. The last write wins.
+Deployed 2026-10-08 (book-tracker #56). The server requires a verified email and App Check (the same as the other
+catalog callables). It rejects with `failed-precondition` unless the caller owns `bookId`, the book is linked to
+`editionId`, and the book's `pageCount` still equals `pageCountBasis`: a page count changed in Book Tracker since the
+last sync means re-syncing, and re-estimating if the slots changed. It rejects with `invalid-argument` margins wider
+than ±20% (half a point of slack for rounding), fewer than 8 random pages, and readability for non-English text.
+Then it writes `editions/{editionId}.wordEstimate` (a merged alias writes to its survivor) with `createdBy` and
+`measuredAt`, and never stores the book id. The last write wins.
 
 Book Tracker UI and statistics come later, in a separate step.
 
