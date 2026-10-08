@@ -1,10 +1,10 @@
 // Regenerate the page photos: node e2e/fixtures/renderPages.ts
 import { chromium } from "@playwright/test";
-import { PAGES } from "./pages.ts";
+import { BLANK_PAGE, PAGES } from "./pages.ts";
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1000, height: 1400 } });
-for (const p of PAGES) {
+for (const p of [...PAGES, BLANK_PAGE]) {
   const paragraphs = p.body.split("\n").map((line) => `<p>${line}</p>`).join("");
   await page.setContent(`
     <body style="margin:0;background:#f4efe4;font-family:Georgia,serif;color:#1a1a1a">

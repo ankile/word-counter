@@ -1,9 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { computeBookEstimate, MIN_RANDOM_PAGES, type EstimatePage } from "../convex/stats.ts";
 import { cleanOcrText, countWords } from "../convex/textAnalysis.ts";
 import { computeVocabularyStats } from "../convex/vocabulary.ts";
 import { EXPECTED_LIBRARY_A } from "./fixtures/library.ts";
-import { PAGES } from "./fixtures/pages.ts";
+import { BLANK_PAGE, PAGES } from "./fixtures/pages.ts";
 import {
   ACCOUNT_A,
   addTemporaryTrackerBook,
@@ -16,6 +17,7 @@ import {
 } from "./testAccounts.ts";
 
 const PAGE_FILES = PAGES.map((p) => new URL(`fixtures/${p.file}`, import.meta.url).pathname);
+const BLANK_FILE = new URL(`fixtures/${BLANK_PAGE.file}`, import.meta.url).pathname;
 const CLEANED_TEXTS = PAGES.map((p) => cleanOcrText(`${p.header}\n${p.body}\n${p.pageNumber}`));
 const EXPECTED_WORDS = CLEANED_TEXTS.map(countWords);
 // OCR of a clean page is near-exact; allow for a split or merged token
@@ -91,11 +93,14 @@ test("photographed pages are OCR'd into word counts and a book estimate", async 
   expect(counts).toHaveLength(2);
   counts.forEach((count, i) => expect(Math.abs(count - EXPECTED_WORDS[i])).toBeLessThanOrEqual(WORD_TOLERANCE));
 
-  await expect(page.getByText("Sampling Analysis")).toBeVisible();
+  await expect(page.getByText("Words per page", { exact: true })).toBeVisible();
   await expect(page.getByText("Estimated total (255 pages)")).toBeVisible();
-  // Two pages give a wide t-interval, so the app asks for more rather than claiming confidence
-  await expect(page.getByText(/^Add ~\d+ more pages$/)).toBeVisible();
-  await expect(page.getByText("High Confidence")).toHaveCount(0);
+  // Hand-picked pages alone read high, so the app flags them and asks for random pages instead of claiming precision
+  await expect(page.getByText("Hand-picked pages only")).toBeVisible();
+  await expect(
+    page.getByText(new RegExp(`^Random pages: ${MIN_RANDOM_PAGES} pages more to send, \\d+ for the recommended ±10%$`))
+  ).toBeVisible();
+  // Vision detects English on these pages, so Flesch scores apply
   await expect(page.getByText("Readability Analysis")).toBeVisible();
   await expect(page.getByText(/^Scan at least 4 pages to estimate the book's vocabulary \(2 so far\)\.$/)).toBeVisible();
 
@@ -115,6 +120,58 @@ test("photographed pages are OCR'd into word counts and a book estimate", async 
   await page.getByRole("button", { name: "Delete" }).last().click();
   await expect(page.getByText("Pages sampled:")).toBeVisible();
   await expect(pageCards(page).getByText(/^[\d,]+ words$/)).toHaveCount(1);
+});
+
+test("random pages, blank ones included, correct the hand-picked estimate", async ({ page }) => {
+  await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length);
+  await page.getByRole("link", { name: /^Foundation/ }).click();
+  const randomCard = page.getByRole("region", { name: "Random pages" });
+  const slots = randomCard.getByText(/^Photograph page \d+$/);
+  // With nothing counted yet, the minimum random sample is suggested
+  await expect(slots).toHaveCount(MIN_RANDOM_PAGES);
+  // The synthetic books aren't linked to a catalog edition, so nothing can be sent
+  await expect(page.getByRole("button", { name: "Send to Book Tracker" })).toBeDisabled();
+  await expect(page.getByText("Link this book to the catalog in Book Tracker first")).toBeVisible();
+
+  await page.locator("input[type=file][multiple]").setInputFiles(PAGE_FILES.slice(0, 3));
+  // Fill four slots: three pages of text and a blank page, which must be photographed rather than skipped
+  const slotPages = (await slots.allTextContents()).slice(0, 4).map((text) => Number(text.replace(/\D/g, "")));
+  const slotFiles = [PAGE_FILES[3], PAGE_FILES[0], PAGE_FILES[1], BLANK_FILE];
+  for (const [i, slot] of slotPages.entries()) {
+    await randomCard.getByLabel(`Photo of page ${slot}`, { exact: true }).setInputFiles(slotFiles[i]);
+    await expect(randomCard.getByText(`Photograph page ${slot}`, { exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByText("Done", { exact: true })).toHaveCount(7, { timeout: 90_000 });
+
+  const blank = page.getByRole("article").filter({ hasText: new RegExp(`Random · p\\. ${slotPages[3]}(?!\\d)`) });
+  await expect(blank.getByText("0 words", { exact: true })).toBeVisible();
+  await blank.getByLabel("Ordinary page of text").uncheck();
+  await expect(blank.getByText(/not ordinary/)).toBeVisible();
+
+  // The app shows the stratified estimate on the counts it OCR'd: 3 chosen, then 4 random pages
+  const counts = await wordCountsOnPage(page);
+  const sampled: EstimatePage[] = counts.map((wordCount, i) => ({
+    origin: i < 3 ? "chosen" : "random",
+    ordinary: i !== 6,
+    wordCount,
+  }));
+  const expected = computeBookEstimate(sampled, 255)!;
+  expect(expected.method).toBe("corrected-chosen");
+  // The blank page pulls the estimate below the hand-picked pages' mean
+  expect(expected.wordsPerPage).toBeLessThan(computeBookEstimate(sampled.slice(0, 3), 255)!.wordsPerPage);
+  const estimateCard = page.getByRole("region", { name: "Words per page" });
+  await expect(estimateCard.getByText("3 hand-picked, 4 random pages")).toBeVisible();
+  await expect(estimateCard.getByText("Not sendable yet")).toBeVisible();
+  await expect(estimateCard.getByText(expected.wordsPerPage.toLocaleString("en-US"), { exact: true })).toBeVisible();
+  await expect(estimateCard.getByText("75%", { exact: true })).toBeVisible();
+  await expect(
+    estimateCard.getByText(
+      `Random pages: ${expected.randomPagesForSendable} pages more to send, ${expected.randomPagesForRecommended} for the recommended ±10%`
+    )
+  ).toBeVisible();
+  await expect(estimateCard.getByText(`${expected.totalWords!.toLocaleString("en-US")} words`)).toBeVisible();
+  // Open slots are topped up to what the ±10% target needs
+  await expect(slots).toHaveCount(Math.max(MIN_RANDOM_PAGES - 4, expected.randomPagesForRecommended));
 });
 
 test("four pages give a unique-word estimate with a growth chart", async ({ page }) => {
@@ -237,4 +294,11 @@ test("phones scan several pages back to back with the in-app camera", async ({ p
   await expect(page.getByText("Done", { exact: true })).toHaveCount(2, { timeout: 90_000 });
   const counts = await wordCountsOnPage(page);
   counts.forEach((count, i) => expect(Math.abs(count - EXPECTED_WORDS[i])).toBeLessThanOrEqual(WORD_TOLERANCE));
+
+  // Scanning random pages asks for each suggested page by number
+  const randomCard = page.getByRole("region", { name: "Random pages" });
+  const firstSlot = (await randomCard.getByText(/^Photograph page \d+$/).first().textContent())!;
+  await randomCard.getByRole("button", { name: "Scan these pages" }).click();
+  await expect(page.getByRole("dialog", { name: "Scan pages" }).getByText(firstSlot, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Done" }).click();
 });

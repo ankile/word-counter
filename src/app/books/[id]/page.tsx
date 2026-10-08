@@ -10,7 +10,9 @@ import { AppShell } from "../../components/AppShell";
 import { ChevronLeftIcon } from "../../components/icons";
 import { PageList } from "../../components/PageList";
 import { PhotoUpload } from "../../components/PhotoUpload";
+import { RandomPageSlots } from "../../components/RandomPageSlots";
 import { SampleConfidence } from "../../components/SampleConfidence";
+import { SendToBookTracker } from "../../components/SendToBookTracker";
 import { VocabularyCard } from "../../components/VocabularyCard";
 
 const backLink = (
@@ -82,9 +84,24 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
           <PhotoUpload bookId={bookId} />
         </div>
 
-        {book.samplingStats && (
+        {book.estimate && (
           <div className="mt-6">
-            <SampleConfidence stats={book.samplingStats} totalBookPages={book.totalPages} />
+            <SampleConfidence estimate={book.estimate} />
+          </div>
+        )}
+
+        <div className="mt-6">
+          <RandomPageSlots
+            bookId={bookId}
+            totalPages={book.totalPages}
+            openSlots={book.openSlots}
+            slotShortfall={book.slotShortfall}
+          />
+        </div>
+
+        {book.trackerBookId && (
+          <div className="mt-6">
+            <SendToBookTracker bookId={bookId} estimate={book.estimate} publish={book.publish} />
           </div>
         )}
 
@@ -92,6 +109,13 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
           <div className="mt-6">
             <VocabularyCard stats={book.vocabulary} processedPages={book.processedCount} />
           </div>
+        )}
+
+        {book.processedCount > 0 && book.resolvedLanguage !== "en" && (
+          <p className="mt-6 text-sm text-stone-500">
+            Readability scores are English-only
+            {book.resolvedLanguage ? ` (this book's language: ${book.resolvedLanguage})` : " (this book's language is unknown)"}.
+          </p>
         )}
 
         {readability && (

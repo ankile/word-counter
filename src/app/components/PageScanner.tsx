@@ -7,8 +7,12 @@ import { useUploadPages } from "../lib/useUploadPages";
 /**
  * Full-screen camera for photographing many pages back to back. Each shot is uploaded in the
  * background, one at a time so page numbers follow capture order, while the next one is taken.
+ * With `slots`, it asks for those random pages in order and stops after the last one.
  */
-export function PageScanner({ bookId, onClose }: { bookId: Id<"books">; onClose: () => void }) {
+export function PageScanner(props: { bookId: Id<"books">; slots?: number[]; onClose: () => void }) {
+  const { bookId, onClose } = props;
+  // The slots at opening: they close one by one as shots upload, but the order to ask for them is fixed
+  const [slots] = useState(props.slots);
   const uploadPages = useUploadPages(bookId);
   const videoRef = useRef<HTMLVideoElement>(null);
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
@@ -51,13 +55,14 @@ export function PageScanner({ bookId, onClose }: { bookId: Id<"books">; onClose:
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d")!.drawImage(video, 0, 0);
+    const slot = slots?.[captured];
     setCaptured((n) => n + 1);
     setFlashKey((k) => k + 1);
     canvas.toBlob(
       (blob) => {
         setLastShotUrl(URL.createObjectURL(blob!));
         uploadQueue.current = uploadQueue.current
-          .then(() => uploadPages([blob!], () => setUploaded((n) => n + 1)))
+          .then(() => uploadPages([blob!], () => setUploaded((n) => n + 1), slot === undefined ? undefined : [slot]))
           // Keep the queue going for later shots, but show that this one failed
           .catch((err: Error) => setUploadError(err.message));
       },
@@ -67,6 +72,9 @@ export function PageScanner({ bookId, onClose }: { bookId: Id<"books">; onClose:
   };
 
   const pending = captured - uploaded;
+  const slotsDone = slots !== undefined && captured >= slots.length;
+  const uploadStatus = pending > 0 ? `uploading ${pending}` : "all uploaded";
+  const progress = `${captured} ${captured === 1 ? "page" : "pages"} · ${uploadStatus}`;
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col" role="dialog" aria-label="Scan pages">
@@ -85,9 +93,13 @@ export function PageScanner({ bookId, onClose }: { bookId: Id<"books">; onClose:
           <div className="bg-black/60 text-white text-sm font-medium px-3 py-1.5 rounded-full" aria-live="polite">
             {uploadError
               ? `Upload failed: ${uploadError}`
+              : slots
+              ? slotsDone
+                ? `All ${slots.length} random pages taken · ${uploadStatus}`
+                : `Photograph page ${slots[captured]}${captured > 0 ? ` · ${progress}` : ""}`
               : captured === 0
               ? "Fit one page in the frame"
-              : `${captured} ${captured === 1 ? "page" : "pages"}${pending > 0 ? ` · uploading ${pending}` : " · all uploaded"}`}
+              : progress}
           </div>
         </div>
         {cameraError && (
@@ -110,7 +122,7 @@ export function PageScanner({ bookId, onClose }: { bookId: Id<"books">; onClose:
         </div>
         <button
           onClick={capture}
-          disabled={!cameraReady}
+          disabled={!cameraReady || slotsDone}
           aria-label="Capture page"
           className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition-transform disabled:opacity-40"
         >

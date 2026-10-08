@@ -2,11 +2,15 @@
  * Book-level aggregate statistics computed from per-page results.
  */
 
-import { getReadingLevel } from "./textAnalysis";
-import type { Readability } from "./validators";
+import { COUNTING_VERSION, getReadingLevel } from "./textAnalysis";
+import type { PageOrigin, Readability } from "./validators";
 
 const round = (x: number, decimals: number) => Math.round(x * 10 ** decimals) / 10 ** decimals;
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+const sampleVariance = (xs: number[]) => {
+  const m = mean(xs);
+  return xs.reduce((sum, x) => sum + (x - m) ** 2, 0) / (xs.length - 1);
+};
 
 export function averageReadability(readabilities: Readability[]) {
   if (readabilities.length === 0) return null;
@@ -21,8 +25,11 @@ export function averageReadability(readabilities: Readability[]) {
   };
 }
 
-// Target precision: ±10% at 95% confidence
-const MARGIN_TARGET = 0.1;
+// Random pages needed before the share of ordinary pages can be estimated at all
+export const MIN_RANDOM_PAGES = 8;
+// 95% margins: Book Tracker accepts up to ±20%; ±10% is recommended
+export const MARGIN_SENDABLE = 0.2;
+export const MARGIN_RECOMMENDED = 0.1;
 const Z_95 = 1.96;
 
 // Two-sided 95% critical values of Student's t for df = 1..30; beyond that z is close enough
@@ -32,51 +39,145 @@ const T_95 = [
 ];
 const tCritical95 = (df: number) => T_95[df - 1] ?? Z_95;
 
-// Relative 95% margin of error for n pages with coefficient of variation cv
-const relativeMargin = (cv: number, n: number) => (tCritical95(n - 1) * cv) / Math.sqrt(n);
-
-/** Smallest sample whose expected margin is within the target, using the same t-interval we report. */
-function requiredSampleSize(cv: number): number {
-  let n = 2;
-  while (relativeMargin(cv, n) > MARGIN_TARGET) n++;
-  return n;
+export interface EstimatePage {
+  origin: PageOrigin;
+  ordinary: boolean;
+  wordCount: number;
 }
 
-export type ConfidenceLevel = "low" | "medium" | "high";
+/** Stratum means and variances; with p = 1 and no other pages it is a plain mean of the ordinary pages. */
+interface Moments {
+  p: number;
+  meanOrd: number;
+  meanOth: number;
+  varOrd: number;
+  varOth: number;
+  // Pages used: the variance counts may be fractional in projections
+  nOrd: number;
+  nOth: number;
+  nRandom: number;
+  // Degrees of freedom are pages used minus this (one per estimated mean)
+  dfLoss: number;
+}
+
+const wordsPerPageOf = (m: Moments) => m.p * m.meanOrd + (1 - m.p) * m.meanOth;
+
+/** 95% relative margin of the stratified (delta-method) estimate, with k more random pages split p : 1 − p. */
+function marginWithMore(m: Moments, k: number): number {
+  const nOrd = m.nOrd + m.p * k;
+  const nOth = m.nOth + (1 - m.p) * k;
+  const nRandom = m.nRandom + k;
+  const variance =
+    (m.p > 0 ? (m.p ** 2 * m.varOrd) / nOrd : 0) +
+    (m.p < 1 ? ((1 - m.p) ** 2 * m.varOth) / nOth : 0) +
+    (nRandom > 0 ? ((m.meanOrd - m.meanOth) ** 2 * m.p * (1 - m.p)) / nRandom : 0);
+  const wordsPerPage = wordsPerPageOf(m);
+  const df = Math.round(nOrd + nOth) - m.dfLoss;
+  return wordsPerPage > 0 ? (tCritical95(df) * Math.sqrt(variance)) / wordsPerPage : 0;
+}
+
+/** Smallest number of additional random pages (≥ minK) whose projected margin is within the target. */
+function randomPagesToReach(m: Moments, target: number, minK: number, maxK: number): number {
+  for (let k = minK; k < maxK; k++) {
+    if (marginWithMore(m, k) <= target) return k;
+  }
+  return Math.max(minK, maxK);
+}
+
+export type EstimateMethod = "random-pages" | "corrected-chosen" | "chosen-pages";
 
 /**
- * Treat the uploaded pages as a random sample of the book and estimate mean words per page,
- * its 95% confidence interval (Student's t), and how many pages are needed for ±10% precision.
+ * Average words per printed page of the book, from its OCR'd pages (docs/book-tracker-word-estimates.md):
+ *
+ *   wordsPerPage = p · mean_ordinary + (1 − p) · mean_other
+ *
+ * p (the share of ordinary pages) and mean_other come from random pages only; mean_ordinary pools hand-chosen
+ * and random ordinary pages. Hand-chosen pages that aren't ordinary have no unbiased place in the estimate and
+ * are left out. Without random pages the plain mean of the chosen pages is reported, which reads high
+ * because blanks, chapter openings and illustrations are missing from it.
+ *
+ * Returns null until there are enough pages for a 95% interval (2 chosen, or 3 once random pages are in).
  */
-export function computeSamplingStats(wordCounts: number[]) {
-  const n = wordCounts.length;
-  if (n < 2) return null;
+export function computeBookEstimate(pages: EstimatePage[], totalPages: number | undefined) {
+  const random = pages.filter((p) => p.origin === "random");
+  const chosen = pages.filter((p) => p.origin === "chosen");
+  const words = (ps: EstimatePage[]) => ps.map((p) => p.wordCount);
+  // Pages a random draw could still land on
+  const maxK = (totalPages ?? Infinity) - random.length;
 
-  const m = mean(wordCounts);
-  const stdDev = Math.sqrt(wordCounts.reduce((sum, x) => sum + (x - m) ** 2, 0) / (n - 1));
-  const cv = m > 0 ? stdDev / m : 0;
+  let method: EstimateMethod;
+  let used: EstimatePage[];
+  let moments: Moments;
+  // Moments for projecting how many random pages are needed; differ from `moments` only for chosen-pages
+  let projection: Moments;
+  if (random.length === 0) {
+    if (chosen.length < 2) return null;
+    method = "chosen-pages";
+    used = chosen;
+    const all = words(chosen);
+    moments = {
+      p: 1,
+      meanOrd: mean(all),
+      meanOth: 0,
+      varOrd: sampleVariance(all),
+      varOth: 0,
+      nOrd: all.length,
+      nOth: 0,
+      nRandom: 0,
+      dfLoss: 1,
+    };
+    // Random pages to come are assumed ordinary, so they tighten the same mean (two means once p is estimated)
+    projection = { ...moments, dfLoss: 2 };
+  } else {
+    const ordinary = words([...chosen, ...random].filter((p) => p.ordinary));
+    const other = words(random.filter((p) => !p.ordinary));
+    used = [...chosen.filter((p) => p.ordinary), ...random];
+    if (used.length < 3) return null;
+    method = chosen.some((p) => p.ordinary) ? "corrected-chosen" : "random-pages";
+    // Fewer than 2 pages in a stratum: borrow the spread of all random pages (or of all pages used)
+    const fallbackVariance = sampleVariance(random.length >= 2 ? words(random) : words(used));
+    moments = {
+      p: (random.length - other.length) / random.length,
+      meanOrd: ordinary.length > 0 ? mean(ordinary) : 0,
+      meanOth: other.length > 0 ? mean(other) : 0,
+      varOrd: ordinary.length >= 2 ? sampleVariance(ordinary) : fallbackVariance,
+      varOth: other.length >= 2 ? sampleVariance(other) : fallbackVariance,
+      nOrd: ordinary.length,
+      nOth: other.length,
+      nRandom: random.length,
+      dfLoss: 2,
+    };
+    projection = moments;
+  }
 
-  const recommendedSampleSize = requiredSampleSize(cv);
-  const marginOfError = tCritical95(n - 1) * (stdDev / Math.sqrt(n));
-  const marginFraction = m > 0 ? marginOfError / m : 0;
-
-  // Confidence follows the precision actually achieved
-  let confidenceLevel: ConfidenceLevel = "low";
-  if (marginFraction <= MARGIN_TARGET) confidenceLevel = "high";
-  else if (marginFraction <= 2 * MARGIN_TARGET) confidenceLevel = "medium";
+  const wordsPerPage = wordsPerPageOf(moments);
+  const margin = marginWithMore(moments, 0);
+  const marginAbsolute = margin * wordsPerPage;
+  // The minimum random pages also rule out chosen-pages estimates
+  const sendable = random.length >= MIN_RANDOM_PAGES && margin <= MARGIN_SENDABLE;
+  const minK = Math.max(0, MIN_RANDOM_PAGES - random.length);
+  const low = Math.max(0, wordsPerPage - marginAbsolute);
+  const high = wordsPerPage + marginAbsolute;
 
   return {
-    sampleSize: n,
-    mean: round(m, 1),
-    stdDev: round(stdDev, 1),
-    cvPercent: round(cv * 100, 1),
-    recommendedSampleSize,
-    additionalPagesNeeded: Math.max(0, recommendedSampleSize - n),
-    confidenceLevel,
-    currentMarginPercent: round(marginFraction * 100, 1),
-    ciLowerPerPage: Math.round(Math.max(0, m - marginOfError)),
-    ciUpperPerPage: Math.round(m + marginOfError),
+    method,
+    chosenPages: used.length - random.length,
+    randomPages: random.length,
+    ordinaryShare: method === "chosen-pages" ? null : round(moments.p, 3),
+    wordsPerPage: round(wordsPerPage, 1),
+    wordsPerPageLow: round(low, 1),
+    wordsPerPageHigh: round(high, 1),
+    marginPercent: round(margin * 100, 1),
+    sendable,
+    meetsRecommended: sendable && margin <= MARGIN_RECOMMENDED,
+    randomPagesForSendable: randomPagesToReach(projection, MARGIN_SENDABLE, minK, maxK),
+    randomPagesForRecommended: randomPagesToReach(projection, MARGIN_RECOMMENDED, minK, maxK),
+    pageCountBasis: totalPages ?? null,
+    totalWords: totalPages === undefined ? null : Math.round(wordsPerPage * totalPages),
+    totalWordsLow: totalPages === undefined ? null : Math.round(low * totalPages),
+    totalWordsHigh: totalPages === undefined ? null : Math.round(high * totalPages),
+    countingVersion: COUNTING_VERSION,
   };
 }
 
-export type SamplingStats = NonNullable<ReturnType<typeof computeSamplingStats>>;
+export type BookEstimate = NonNullable<ReturnType<typeof computeBookEstimate>>;

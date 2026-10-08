@@ -8,7 +8,7 @@ Three layers, fastest first:
 | `npm run test:e2e` | Playwright against `next dev` on :3100 + the Convex **dev** deployment | one-time setup below |
 | `E2E_BASE_URL=https://word-counter.ankile.com npm run test:e2e` | the same suite against **production** (prod Convex, real reCAPTCHA) | one-time setup below |
 
-Each e2e run covers desktop Chrome and iPhone 15 (WebKit), 12 tests in about 2–3 minutes. Failures leave
+Each e2e run covers desktop Chrome and iPhone 15 (WebKit), 16 tests in about 2–3 minutes. Failures leave
 screenshots and traces in `test-results/`; open the HTML report with `npx playwright show-report`, or a trace with
 `npx playwright show-trace test-results/<test>/trace.zip`.
 
@@ -60,13 +60,24 @@ screenshots and traces in `test-results/`; open the HTML report with `npx playwr
 - **Admin access** uses `gcloud auth print-access-token --account=lars.ankile@gmail.com`, the same keyless approach as
   `book-tracker/migrate-lib.ts`. Book Tracker deleted its service-account keys during security hardening (SEC-048).
   Don't create keys for this.
-- **Page photos.** `e2e/fixtures/page-{1,2}.png` are rendered public-domain pages with known word counts (122 and
-  115 after the header and page number are cleaned off). Regenerate them with `node e2e/fixtures/renderPages.ts`
+- **Page photos.** `e2e/fixtures/page-{1..4}.png` are rendered public-domain pages with known word counts (122 and
+  115 for the first two after the header and page number are cleaned off). `page-blank.png` carries only a page
+  number, so it counts 0 words: the random-pages test photographs it into a slot and marks it not ordinary. Regenerate them with `node e2e/fixtures/renderPages.ts`
   after editing `e2e/fixtures/pages.ts`. The suite runs real Google Vision OCR (a few requests per run).
 - **Scanner test.** The in-app camera (`PageScanner`) is driven by a stand-in `getUserMedia` that streams a canvas
   showing whichever fixture page the test sets, so the iPhone project can snap two pages back to back.
 - **Local runs** push the working tree's Convex functions to the dev deployment (`e2e/globalSetup.ts` runs
   `npx convex dev --once`) and start `next dev` on port 3100, or reuse one that's already running.
+- **A second checkout (such as a worktree)** must not share the dev deployment or port 3100 with another checkout
+  under test: pushes overwrite each other's backend, and Playwright would reuse the other checkout's `next dev`. Give
+  it a local Convex backend and its own port:
+  ```bash
+  npx convex dev --configure existing --team lars-ankile --project word-counter --dev-deployment local --once
+  npx convex env set GCP_VISION_API_KEY <key>   # the dev deployment's key
+  npx convex dev --tail-logs disable            # keep running: it hosts the local backend and pushes changes
+  E2E_PORT=3101 npm run test:e2e                # globalSetup skips its push for local deployments
+  ```
+  It also needs its own `npm ci`: Turbopack rejects a symlinked `node_modules`.
 
 Manual helpers:
 
@@ -116,6 +127,7 @@ keys and rules weren't changed.
 | App Check debug token "word-counter e2e (local .env.local)" | (secret) | list or revoke: Firebase console → App Check → Apps → word-counter → Manage debug tokens |
 | Auth users `word-counter-e2e-a`, `word-counter-e2e-b` | fixed UIDs | plus their `users/{uid}` docs (created by Book Tracker's auth trigger) and seeded books |
 | API key "word-counter" | Vision API only | the `GCP_VISION_API_KEY` used by Convex for OCR |
+| Callable `catalog-setwordestimate` (europe-west1) | Book Tracker function | stores a book's words-per-page estimate on its catalog edition; called from the browser by "Send to Book Tracker" ([contract](book-tracker-word-estimates.md#book-tracker-side-not-for-word-counter-agents)). Owned and deployed by Book Tracker. |
 
 **Removing the test accounts is one-way.** Deleting an Auth user fires Book Tracker's account-deletion trigger, which
 tombstones `users/{uid}` (SEC-006). Book Tracker's rules then treat that UID as deleted, so if you need test accounts

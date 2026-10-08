@@ -4,6 +4,20 @@
 
 import type { Readability } from "./validators";
 
+/**
+ * Version of the word-counting rule: cleanOcrText (page numbers and running headers dropped, footnotes kept)
+ * followed by countWords (whitespace tokens). Book Tracker compares counts across books, so bump this whenever
+ * either changes, then run migrations:reprocessStalePages and re-send published estimates.
+ */
+export const COUNTING_VERSION = 1;
+
+/** ISO 639 code from a BCP-47 tag, as Book Tracker stores it: primary subtag, Bokmål as "no"; '' if invalid. */
+export function normalizeLanguageCode(tag: string): string {
+  const primary = tag.trim().toLowerCase().split(/[-_]/)[0];
+  const code = primary === "nb" ? "no" : primary;
+  return /^[a-z]{2,3}$/.test(code) ? code : "";
+}
+
 // Lowercase letters/digits/spaces only, with page numbers at either end removed
 const normalizeHeader = (line: string) =>
   line
@@ -93,7 +107,8 @@ function splitWords(text: string): string[] {
 const round = (x: number, decimals: number) => Math.round(x * 10 ** decimals) / 10 ** decimals;
 
 /**
- * Analyze text and compute Flesch readability metrics.
+ * Analyze text and compute Flesch readability metrics. English only: the syllable heuristic and the Flesch
+ * formulas don't apply to other languages.
  */
 export function analyzeText(text: string): Readability {
   const words = splitWords(text);

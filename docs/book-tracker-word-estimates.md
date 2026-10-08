@@ -235,6 +235,25 @@ rejects margins wider than ±20%, validates ranges, then writes `catalogEditions
 
 Book Tracker UI and statistics come later, in a separate step.
 
+## Implementation status (word-counter)
+
+W1–W8 are built. Where the spec left a choice open:
+
+- The estimator is `computeBookEstimate` in `convex/stats.ts` (delta method, no bootstrap). It returns null until there
+  are 2 chosen pages, or 3 pages once random pages are in, because the t-interval needs the degrees of freedom.
+  Unknown `totalPages` gives `pageCountBasis` and the totals as `null`.
+- `chosenPages` counts the chosen pages the estimate uses. Chosen pages unticked as not ordinary stay stored and
+  shown, but they're left out of the estimate: as hand-picked pages they can't stand in for `mean_other`.
+- Projections assume future random pages split `p : 1 − p` with the current stratum spreads. Before any random
+  page exists they assume `p = 1`. They are capped at the pages left to draw.
+- Slots (`books.randomSlots`) are topped up automatically to `randomPagesForRecommended` (at least
+  `MIN_RANDOM_PAGES` before there's an estimate). "Suggest more" draws 4 extra.
+- Readability is computed only for pages whose resolved language is `en` and aggregated only for English books.
+  Pages counted before this change keep their stored scores until re-processed.
+- Sending is also blocked while any counted page carries an older `countingVersion` ("Re-process N pages…").
+- Pending: the e2e assertion that the callable rejects a synthetic book with `failed-precondition` waits until
+  `catalog-setwordestimate` is deployed.
+
 ## Out of scope
 
 - Deleting, replacing or re-sampling existing photos.

@@ -14,6 +14,8 @@ import type * as migrations from "../migrations.js";
 import type * as ocr from "../ocr.js";
 import type * as ocrAction from "../ocrAction.js";
 import type * as pages from "../pages.js";
+import type * as publish from "../publish.js";
+import type * as sampling from "../sampling.js";
 import type * as stats from "../stats.js";
 import type * as testing from "../testing.js";
 import type * as textAnalysis from "../textAnalysis.js";
@@ -33,6 +35,8 @@ declare const fullApi: ApiFromModules<{
   ocr: typeof ocr;
   ocrAction: typeof ocrAction;
   pages: typeof pages;
+  publish: typeof publish;
+  sampling: typeof sampling;
   stats: typeof stats;
   testing: typeof testing;
   textAnalysis: typeof textAnalysis;
