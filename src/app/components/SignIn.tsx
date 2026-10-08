@@ -6,6 +6,14 @@ import { useState } from "react";
 import { auth } from "../lib/firebase";
 import { LogoMark } from "./Logo";
 
+// Unknown email and wrong password read the same, so the form doesn't reveal which accounts exist
+const SIGN_IN_ERRORS: Record<string, string> = {
+  "auth/invalid-credential": "Wrong email or password",
+  "auth/user-not-found": "Wrong email or password",
+  "auth/wrong-password": "Wrong email or password",
+  "auth/too-many-requests": "Too many sign-in attempts. Wait a few minutes and try again.",
+};
+
 export function SignIn() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +26,7 @@ export function SignIn() {
     setError(null);
     // Wrong credentials are an expected outcome here, so show them instead of throwing
     await signInWithEmailAndPassword(auth, email, password).catch((err: FirebaseError) =>
-      setError(err.code === "auth/invalid-credential" ? "Wrong email or password" : err.message)
+      setError(SIGN_IN_ERRORS[err.code] ?? err.message)
     );
     setSubmitting(false);
   };

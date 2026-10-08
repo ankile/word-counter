@@ -50,7 +50,8 @@ async function wordCountsOnPage(page: Page): Promise<number[]> {
 
 test("wrong password is rejected", async ({ page }) => {
   await page.goto("/");
-  await page.getByPlaceholder("Email").fill(ACCOUNT_A.email);
+  // Not a real account: failed attempts on the shared test accounts make Firebase lock them (auth/too-many-requests)
+  await page.getByPlaceholder("Email").fill("word-counter-e2e-nobody@example.com");
   await page.getByPlaceholder("Password").fill("not-the-password");
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByText("Wrong email or password")).toBeVisible();
