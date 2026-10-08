@@ -17,6 +17,7 @@ const input = (overrides: Partial<PublishInput> = {}): PublishInput => ({
   estimate: SENDABLE,
   randomPages: SENDABLE.randomPages,
   stalePages: 0,
+  openGrowthSlots: 0,
   language: "en",
   readability,
   vocabulary: null,
@@ -39,6 +40,13 @@ describe("publishBlocker", () => {
   test("needs the page count and current word counts", () => {
     expect(publishBlocker(input({ totalPages: undefined }))).toBe("Set the page count in Book Tracker first");
     expect(publishBlocker(input({ stalePages: 2 }))).toBe("Re-process 2 pages counted under an older rule");
+  });
+
+  test("waits for the pages drawn when the page count grew, even if the estimate is sendable", () => {
+    expect(publishBlocker(input({ openGrowthSlots: 3 }))).toBe(
+      "Photograph the 3 random pages drawn when the page count grew"
+    );
+    expect(buildWordEstimatePayload(input({ openGrowthSlots: 1 }))).toBeNull();
   });
 
   test("says how many random pages are missing", () => {

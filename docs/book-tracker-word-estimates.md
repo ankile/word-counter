@@ -129,7 +129,8 @@ the owner can untick existing chosen pages that turn out to be chapter openings.
   with a fresh draw. That is the only way to leave one.
 - If `totalPages` shrinks in Book Tracker, slots beyond the new count drop out. Their photos stay, recorded as
   `chosen`. If it grows, extra slots are drawn from the new pages until they hold their share of all slots,
-  `(new − old)/new`, so the back matter that often makes up the difference isn't under-sampled.
+  `(new − old)/new`, so the back matter that often makes up the difference isn't under-sampled. Sending waits until
+  those slots are photographed (`books.growthSlots`), since until then the estimate rests on the old pages only.
 
 ### W4. Freeze the counting rule
 
