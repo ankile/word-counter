@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { env, internalAction } from "./_generated/server";
-import { analyzeText, cleanOcrText, countWords } from "./textAnalysis";
+import { analyzeText, cleanOcrText, COUNTING_VERSION, countWords, normalizeLanguageCode } from "./textAnalysis";
 
 // Subset of the Cloud Vision images:annotate response that we use
 interface VisionResponse {
@@ -12,11 +12,20 @@ interface VisionResponse {
       description?: string;
       boundingPoly?: { vertices?: { x?: number; y?: number }[] };
     }[];
+    fullTextAnnotation?: {
+      pages?: { property?: { detectedLanguages?: { languageCode?: string; confidence?: number }[] } }[];
+    };
   }[];
 }
 
 export const processPage = internalAction({
-  args: { pageId: v.id("pages"), imageStorageId: v.id("_storage"), runningHeaders: v.array(v.string()) },
+  args: {
+    pageId: v.id("pages"),
+    imageStorageId: v.id("_storage"),
+    runningHeaders: v.array(v.string()),
+    // The book's language from Book Tracker, '' when unknown (then Vision's detected language is used)
+    bookLanguage: v.string(),
+  },
   handler: async (ctx, args) => {
     await ctx.runMutation(internal.ocr.updatePageStatus, { id: args.pageId, status: "processing" });
 
@@ -40,21 +49,27 @@ export const processPage = internalAction({
       return;
     }
 
+    const [response] = ((await visionResponse.json()) as VisionResponse).responses;
     // First annotation is the full text, the rest are individual words
-    const [fullText, ...words] = ((await visionResponse.json()) as VisionResponse).responses[0].textAnnotations ?? [];
+    const [fullText, ...words] = response.textAnnotations ?? [];
     const extractedText = cleanOcrText(fullText?.description ?? "", args.runningHeaders);
     const wordCount = countWords(extractedText);
+    // Most confident language on the page; a blank page has none
+    const detected = response.fullTextAnnotation?.pages?.[0]?.property?.detectedLanguages?.[0]?.languageCode;
+    const language = detected ? normalizeLanguageCode(detected) : "";
 
     await ctx.runMutation(internal.ocr.updatePageStatus, {
       id: args.pageId,
       status: "done",
       extractedText,
       wordCount,
+      countingVersion: COUNTING_VERSION,
+      language: language || undefined,
       boundingBoxes: words.map((word) => ({
         text: word.description ?? "",
         vertices: (word.boundingPoly?.vertices ?? []).map((vertex) => ({ x: vertex.x ?? 0, y: vertex.y ?? 0 })),
       })),
-      readability: wordCount > 0 ? analyzeText(extractedText) : undefined,
+      readability: wordCount > 0 && (args.bookLanguage || language) === "en" ? analyzeText(extractedText) : undefined,
     });
   },
 });

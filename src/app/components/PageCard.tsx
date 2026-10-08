@@ -92,9 +92,36 @@ function Lightbox({ onClose, children }: { onClose: () => void; children: React.
   );
 }
 
+/** Printed page number of a hand-chosen page; optional, saved when the field loses focus. */
+function BookPageInput({ page }: { page: Page }) {
+  const setBookPage = useMutation(api.pages.setBookPage);
+  return (
+    <label className="flex items-center gap-2 text-xs text-stone-500 mb-3">
+      Printed page
+      <input
+        type="number"
+        min={1}
+        defaultValue={page.bookPage}
+        placeholder="–"
+        onBlur={(e) => {
+          const bookPage = e.target.value === "" ? undefined : Number(e.target.value);
+          if (bookPage !== page.bookPage) void setBookPage({ id: page._id, bookPage });
+        }}
+        className="w-16 px-2 py-1 border border-stone-200 rounded-md text-stone-900"
+      />
+    </label>
+  );
+}
+
 export function PageCard({ page }: { page: Page }) {
   const removePage = useMutation(api.pages.remove);
   const reprocessPage = useMutation(api.pages.reprocess);
+  // Optimistic, so the checkbox flips on click rather than after the round trip
+  const setOrdinary = useMutation(api.pages.setOrdinary).withOptimisticUpdate((store, { id, ordinary }) => {
+    const args = { bookId: page.bookId };
+    const pages = store.getQuery(api.pages.listByBook, args);
+    if (pages) store.setQuery(api.pages.listByBook, args, pages.map((p) => (p._id === id ? { ...p, ordinary } : p)));
+  });
   const [showText, setShowText] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [showLightbox, setShowLightbox] = useState(false);
@@ -114,7 +141,10 @@ export function PageCard({ page }: { page: Page }) {
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden hover:shadow-md transition-shadow">
+      <article
+        aria-label={`Page ${page.pageNumber}`}
+        className="bg-white rounded-xl border border-stone-200 overflow-hidden hover:shadow-md transition-shadow"
+      >
         {/* Image area */}
         <div className="aspect-[3/4] relative bg-stone-100">
           {page.imageUrl && (
@@ -133,8 +163,16 @@ export function PageCard({ page }: { page: Page }) {
               {overlay}
             </>
           )}
-          <div className="absolute top-3 left-3 bg-stone-900/70 text-white text-xs font-medium px-2 py-1 rounded-md">
-            Page {page.pageNumber}
+          <div className="absolute top-3 left-3 flex flex-col items-start gap-1">
+            <div className="bg-stone-900/70 text-white text-xs font-medium px-2 py-1 rounded-md">Page {page.pageNumber}</div>
+            <div
+              className={`text-xs font-medium px-2 py-1 rounded-md ${
+                page.origin === "random" ? "bg-brand-700/90 text-white" : "bg-white/90 text-stone-700"
+              }`}
+            >
+              {page.origin === "random" ? `Random · p. ${page.bookPage}` : "Hand-picked"}
+              {!page.ordinary && " · not ordinary"}
+            </div>
           </div>
           {hasBoxes && (
             <OcrToggle
@@ -155,6 +193,24 @@ export function PageCard({ page }: { page: Page }) {
               <span className="text-sm font-semibold text-stone-900">{page.wordCount.toLocaleString()} words</span>
             )}
           </div>
+
+          {page.status === "done" && (
+            <label
+              className={`flex items-center gap-2 text-xs mb-3 ${
+                page.origin === "random" ? "font-medium text-stone-900" : "text-stone-500"
+              }`}
+              title="A full page of running text: no chapter start or end, illustration, table or blank space"
+            >
+              <input
+                type="checkbox"
+                checked={page.ordinary}
+                onChange={(e) => setOrdinary({ id: page._id, ordinary: e.target.checked })}
+              />
+              Ordinary page of text
+            </label>
+          )}
+
+          {page.origin === "chosen" && <BookPageInput page={page} />}
 
           {page.status === "done" && page.readability && (
             <div className="flex items-center gap-3 text-xs text-stone-500 mb-3">
@@ -201,7 +257,7 @@ export function PageCard({ page }: { page: Page }) {
             </button>
           </div>
         </div>
-      </div>
+      </article>
 
       {showLightbox && page.imageUrl && (
         <Lightbox onClose={() => setShowLightbox(false)}>
@@ -223,7 +279,7 @@ export function PageCard({ page }: { page: Page }) {
               }`}
             />
           )}
-          <div className="absolute bottom-4 left-1/2 -transtone-x-1/2 bg-black/60 text-white text-sm px-4 py-2 rounded-lg">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-4 py-2 rounded-lg">
             Page {page.pageNumber}
             {page.wordCount !== undefined && ` • ${page.wordCount.toLocaleString()} words`}
           </div>

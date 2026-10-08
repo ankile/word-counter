@@ -33,12 +33,11 @@ export default defineSchema({
     imageStorageId: v.id("_storage"),
     // Upload order within the book, not the printed page number
     pageNumber: v.number(),
-    // Transitional: optional until migrations:backfillPageSampling has run
-    origin: v.optional(pageOrigin),
+    origin: pageOrigin,
     // Printed page number; always set for random pages
     bookPage: v.optional(v.number()),
     // A full page of running text (no chapter start or end, illustration, table or blank space)
-    ordinary: v.optional(v.boolean()),
+    ordinary: v.boolean(),
     extractedText: v.optional(v.string()),
     wordCount: v.optional(v.number()),
     // COUNTING_VERSION of the rule that produced wordCount

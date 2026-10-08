@@ -8,6 +8,8 @@ export const updatePageStatus = internalMutation({
     status: pageStatus,
     extractedText: v.optional(v.string()),
     wordCount: v.optional(v.number()),
+    countingVersion: v.optional(v.number()),
+    language: v.optional(v.string()),
     error: v.optional(v.string()),
     boundingBoxes: v.optional(v.array(boundingBox)),
     readability: v.optional(readability),
@@ -18,6 +20,8 @@ export const updatePageStatus = internalMutation({
     await ctx.db.patch("pages", id, {
       extractedText: undefined,
       wordCount: undefined,
+      countingVersion: undefined,
+      language: undefined,
       error: undefined,
       boundingBoxes: undefined,
       readability: undefined,

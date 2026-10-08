@@ -12,7 +12,9 @@ A web app to photograph book pages, extract text via OCR, and count words. Desig
 - **Photo Upload** - Drag & drop or select multiple page photos
 - **OCR Processing** - Google Cloud Vision extracts text from images
 - **Word Counting** - Per-page and total word counts with averages
-- **Readability Metrics** - Flesch-Kincaid grade level and reading ease scores
+- **Words per Page** - A 95% interval for the book's average words per printed page. A few randomly drawn pages (blank ones and chapter openings included) correct the high bias of hand-picked full pages ([method](docs/book-tracker-word-estimates.md))
+- **Send to Book Tracker** - Publish a precise enough estimate (±20%, ±10% recommended) to the book's catalog edition
+- **Readability Metrics** - Flesch-Kincaid grade level and reading ease scores (English books only)
 - **Unique Words** - Estimates the book's total vocabulary by fitting the new-words-per-page curve and extending it to the last page, with a chart ([method and validation](docs/vocabulary.md))
 - **OCR Visualization** - Toggle bounding box overlay to see what was detected
 - **Lightbox View** - Click any thumbnail to view full-size with OCR overlay

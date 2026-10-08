@@ -43,3 +43,6 @@ This was invitation enough.
 "In such cases, a woman has not often much beauty to think of."`,
   },
 ];
+
+// A blank page that carries only its page number: OCR cleanup leaves no words
+export const BLANK_PAGE = { file: "page-blank.png", header: "", pageNumber: "8", body: "" };

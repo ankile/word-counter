@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 
 // The "word-counter" web app in the Book Tracker Firebase project (book-tracker-d8f24).
 // API key, app ID and reCAPTCHA site key are public identifiers.
@@ -29,3 +30,5 @@ if (typeof window !== "undefined") {
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+// Book Tracker's callables run in europe-west1; App Check and Auth tokens are attached automatically
+export const functions = getFunctions(app, "europe-west1");

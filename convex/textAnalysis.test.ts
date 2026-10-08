@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { analyzeText, cleanOcrText, countWords, getReadingLevel } from "./textAnalysis";
+import { analyzeText, cleanOcrText, countWords, getReadingLevel, normalizeLanguageCode } from "./textAnalysis";
 
 describe("cleanOcrText", () => {
   test("drops page numbers and short all-caps headers, rejoins hyphenated line breaks", () => {
@@ -40,6 +40,15 @@ describe("analyzeText", () => {
     const r = analyzeText("");
     expect(r).toMatchObject({ sentenceCount: 1, syllableCount: 0, fleschReadingEase: 0, fleschKincaidGrade: 0 });
   });
+});
+
+test("normalizeLanguageCode stores languages the way Book Tracker does", () => {
+  expect(normalizeLanguageCode("en-US")).toBe("en");
+  expect(normalizeLanguageCode("nb")).toBe("no");
+  expect(normalizeLanguageCode("NB_no")).toBe("no");
+  expect(normalizeLanguageCode("nn")).toBe("nn");
+  expect(normalizeLanguageCode("und-Latn-x")).toBe("und");
+  expect(normalizeLanguageCode("")).toBe("");
 });
 
 test("getReadingLevel thresholds", () => {
