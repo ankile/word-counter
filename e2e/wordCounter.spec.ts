@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { buildWordEstimatePayload } from "../convex/publish.ts";
 import { SLOT_BATCH } from "../convex/sampling.ts";
 import { computeBookEstimate, MIN_RANDOM_PAGES, type EstimatePage } from "../convex/stats.ts";
 import { cleanOcrText, countWords } from "../convex/textAnalysis.ts";
@@ -10,6 +11,7 @@ import {
   ACCOUNT_A,
   addTemporaryTrackerBook,
   ACCOUNT_B,
+  callBookTrackerAs,
   deleteTrackerBook,
   resetConvex,
   seedLibraries,
@@ -252,6 +254,38 @@ test("changes in Book Tracker show up on the next load", async ({ page }) => {
   await expect(page.getByRole("link", { name: /^War and Peace \(Maude translation\)\s*Leo Tolstoy/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /^Temporary Unsampled/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: /^Temporary Sampled/ })).toBeVisible();
+});
+
+test("Book Tracker accepts the estimate's shape but refuses a book not linked to the edition", async ({ isMobile }) => {
+  test.skip(isMobile, "A server call, the same from every device");
+  // A sendable estimate in exactly the form "Send to Book Tracker" sends, for a synthetic book. The synthetic books
+  // are never linked to a catalog edition, so the server must refuse it (failed-precondition) without writing.
+  const words = (n: number) => Array.from({ length: n }, (_, i) => 300 + (i % 2 === 0 ? 10 : -10));
+  const estimate = computeBookEstimate(
+    [
+      ...words(6).map((wordCount) => ({ origin: "random" as const, ordinary: true, wordCount })),
+      ...words(2).map((wordCount) => ({ origin: "random" as const, ordinary: false, wordCount })),
+    ],
+    255
+  )!;
+  const payload = buildWordEstimatePayload({
+    trackerBookId: "e2e-foundation",
+    editionId: "word-counter-e2e-unlinked-edition",
+    totalPages: 255,
+    estimate,
+    randomPages: estimate.randomPages,
+    stalePages: 0,
+    openGrowthSlots: 0,
+    language: "en",
+    readability: { fleschKincaidGrade: 6.4, fleschReadingEase: 79.9, avgWordsPerSentence: 17.4, avgSyllablesPerWord: 1.29, readingLevel: "Fairly Easy (7th grade)" },
+    vocabulary: null,
+  })!;
+  // An invalid-argument refusal here would mean the contract drifted: the decoder runs before the ownership checks
+  const { status, json } = await callBookTrackerAs(ACCOUNT_A.email, "catalog-setwordestimate", payload);
+  expect(json).toEqual({
+    error: { status: "FAILED_PRECONDITION", message: "That book is not linked to this edition in Book Tracker." },
+  });
+  expect(status).toBe(400);
 });
 
 test("accounts only see their own books", async ({ page }) => {

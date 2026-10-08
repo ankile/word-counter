@@ -109,6 +109,8 @@ The app is deployed to Vercel with automatic deploys from the `main` branch:
 - **Frontend**: Vercel (connected to GitHub)
 - **Backend**: Convex Cloud
 - **Domain**: [word-counter.ankile.com](https://word-counter.ankile.com)
+- **Preview deploys** (pull requests) build against the Convex dev deployment. They can't sign in: Book Tracker's
+  App Check reCAPTCHA key only allows word-counter.ankile.com and localhost.
 
 To deploy changes (full release checklist in [docs/testing.md](docs/testing.md#release-checklist)):
 

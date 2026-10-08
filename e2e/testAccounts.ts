@@ -156,6 +156,44 @@ export async function deleteTrackerBook(uid: string, bookId: string) {
   await deleteDocument(`users/${uid}/books/${bookId}`);
 }
 
+// ---- Book Tracker callables ----
+
+// Public browser key of the word-counter web app (src/app/lib/firebase.ts)
+const WEB_API_KEY = "AIzaSyCoQYyM7DjMC_pQmBePwh77Arq_sT791fw";
+
+async function postJson(url: string, body: unknown, headers: Record<string, string> = {}) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(30_000),
+  });
+  return { status: response.status, json: await response.json() };
+}
+
+/**
+ * Call a Book Tracker callable (europe-west1) as a synthetic account, with the ID and App Check tokens the browser
+ * would attach. App Check comes from the registered debug token in .env.local, so this works against production too.
+ */
+export async function callBookTrackerAs(email: string, name: string, data: unknown) {
+  const appCheck = await postJson(
+    `https://firebaseappcheck.googleapis.com/v1/projects/${PROJECT_NUMBER}/apps/${WEB_APP_ID}:exchangeDebugToken?key=${WEB_API_KEY}`,
+    { debugToken: process.env.NEXT_PUBLIC_APPCHECK_DEBUG_TOKEN }
+  );
+  if (appCheck.status !== 200) throw new Error(`App Check exchange → ${appCheck.status}: ${JSON.stringify(appCheck.json)}`);
+  const appCheckHeader = { "X-Firebase-AppCheck": appCheck.json.token as string };
+  const signIn = await postJson(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${WEB_API_KEY}`,
+    { email, password: testPassword(), returnSecureToken: true },
+    appCheckHeader
+  );
+  if (signIn.status !== 200) throw new Error(`Sign-in → ${signIn.status}: ${JSON.stringify(signIn.json)}`);
+  return await postJson(`https://europe-west1-${PROJECT_ID}.cloudfunctions.net/${name}`, { data }, {
+    ...appCheckHeader,
+    Authorization: `Bearer ${signIn.json.idToken}`,
+  });
+}
+
 // ---- Convex ----
 
 /** Wipe the e2e accounts' word-counter data (books, pages, images) on the dev or prod deployment. */

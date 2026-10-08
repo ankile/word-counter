@@ -267,8 +267,11 @@ W1–W8 are built. Where the spec left a choice open:
 - Readability is computed only for pages whose resolved language is `en` and aggregated only for English books.
   Pages counted before this change keep their stored scores until re-processed.
 - Sending is also blocked while any counted page carries an older `countingVersion` ("Re-process N pages…").
-- Pending: the e2e assertion that the callable rejects a synthetic book with `failed-precondition` waits until
-  `catalog-setwordestimate` is deployed.
+- `catalog-setwordestimate` is live (book-tracker PR #56, deployed 2026-10-07). As built, it stores on
+  `editions/{editionId}.wordEstimate`, a merged alias stores on its survivor, and it also refuses a book whose
+  `pageCount` differs from `pageCountBasis`. The e2e suite calls it as synthetic account A with a payload from
+  `buildWordEstimatePayload` and expects `failed-precondition` for the unlinked book. That checks auth, App Check
+  and the request shape against production without writing. A real send needs the owner's linked book.
 
 ## Out of scope
 
