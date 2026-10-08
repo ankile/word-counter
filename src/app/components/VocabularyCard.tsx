@@ -58,6 +58,7 @@ interface CurveChartProps {
   lastPage: number;
   sampledPages: number;
   scale: Scale;
+  onScaleChange: (scale: Scale) => void;
   sampled: { page: number; value: number }[];
   curve: (page: number) => number;
   // Optional vertical range at the last page (cumulative projection)
@@ -107,7 +108,10 @@ function CurveChart(props: CurveChartProps) {
 
   return (
     <div>
-      <div className="text-xs text-slate-500 mb-1">{props.label}</div>
+      <div className="flex items-center justify-between gap-3 mb-1">
+        <div className="text-xs text-slate-500">{props.label}</div>
+        <ScaleToggle scale={scale} onChange={props.onScaleChange} label={`${props.label}: page axis`} />
+      </div>
       <div ref={containerRef} className="relative">
         {width > 0 && (
           <svg
@@ -177,6 +181,23 @@ function CurveChart(props: CurveChartProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ScaleToggle({ scale, onChange, label }: { scale: Scale; onChange: (scale: Scale) => void; label: string }) {
+  return (
+    <div className="flex rounded-md border border-slate-200 p-0.5 text-xs shrink-0" role="group" aria-label={label}>
+      {(["linear", "log"] as const).map((s) => (
+        <button
+          key={s}
+          onClick={() => onChange(s)}
+          aria-pressed={scale === s}
+          className={`px-2 py-1 rounded font-medium ${scale === s ? "bg-slate-100 text-slate-900" : "text-slate-500"}`}
+        >
+          {s === "log" ? "Log" : "Linear"}
+        </button>
+      ))}
     </div>
   );
 }
@@ -251,7 +272,8 @@ function ModelExplainer() {
 }
 
 export function VocabularyCard({ stats, processedPages }: { stats: VocabularyStats | null; processedPages: number }) {
-  const [scale, setScale] = useState<Scale>("log");
+  const [cumulativeScale, setCumulativeScale] = useState<Scale>("linear");
+  const [marginalScale, setMarginalScale] = useState<Scale>("log");
   const [hoverPage, setHoverPage] = useState<number | null>(null);
 
   if (!stats) {
@@ -297,7 +319,7 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
         </span>
       </div>
 
-      <div className="flex items-center justify-between mt-5 mb-2">
+      <div className="mt-5 mb-2">
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
           <span className="inline-flex items-center gap-1.5">
             <svg width="10" height="10" aria-hidden>
@@ -320,18 +342,6 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
             </span>
           )}
         </div>
-        <div className="flex rounded-md border border-slate-200 p-0.5 text-xs shrink-0" role="group" aria-label="Page axis">
-          {(["log", "linear"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setScale(s)}
-              aria-pressed={scale === s}
-              className={`px-2 py-1 rounded font-medium ${scale === s ? "bg-slate-100 text-slate-900" : "text-slate-500"}`}
-            >
-              {s === "log" ? "Log" : "Linear"}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="space-y-5">
@@ -339,7 +349,8 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
           label="Unique words so far"
           lastPage={lastPage}
           sampledPages={n}
-          scale={scale}
+          scale={cumulativeScale}
+          onScaleChange={setCumulativeScale}
           sampled={stats.rarefied.map((p) => ({ page: p.page, value: p.cumulative }))}
           curve={(page) => growthCurveAt(curve, page)}
           whisker={projection ? { low: projection.low, high: projection.high } : undefined}
@@ -360,7 +371,8 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
           label="New unique words per page"
           lastPage={lastPage}
           sampledPages={n}
-          scale={scale}
+          scale={marginalScale}
+          onScaleChange={setMarginalScale}
           sampled={stats.rarefied.map((p) => ({ page: p.page, value: p.marginal }))}
           curve={(page) => growthCurveMarginal(curve, page)}
           endLabel={

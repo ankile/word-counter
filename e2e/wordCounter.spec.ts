@@ -140,8 +140,16 @@ test("four pages give a unique-word estimate with a growth chart", async ({ page
   await card.getByText("How is this estimated?").click();
   await expect(card.getByRole("link", { name: /^Heaps' law/ })).toHaveAttribute("href", "https://en.wikipedia.org/wiki/Heaps%27_law");
   await expect(card.getByRole("link", { name: /^Validation on 10 novels/ })).toBeVisible();
-  await card.getByRole("button", { name: "Linear" }).click();
-  await expect(card.getByText("Page", { exact: true }).first()).toBeVisible();
+  // Each chart has its own page-axis toggle: cumulative defaults to linear, per-page to log
+  const cumulativeAxis = card.getByRole("group", { name: "Unique words so far: page axis" });
+  const marginalAxis = card.getByRole("group", { name: "New unique words per page: page axis" });
+  await expect(cumulativeAxis.getByRole("button", { name: "Linear" })).toHaveAttribute("aria-pressed", "true");
+  await expect(marginalAxis.getByRole("button", { name: "Log" })).toHaveAttribute("aria-pressed", "true");
+  await expect(card.getByText("Page", { exact: true })).toHaveCount(1);
+  await expect(card.getByText("Page (log scale)", { exact: true })).toHaveCount(1);
+  await cumulativeAxis.getByRole("button", { name: "Log" }).click();
+  await expect(card.getByText("Page (log scale)", { exact: true })).toHaveCount(2);
+  await expect(marginalAxis.getByRole("button", { name: "Log" })).toHaveAttribute("aria-pressed", "true");
 
   await card.getByText("Show data").click();
   await expect(card.getByRole("row")).toHaveCount(1 + 4 + 1); // header, 4 sampled, projected
