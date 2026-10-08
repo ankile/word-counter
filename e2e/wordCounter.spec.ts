@@ -157,17 +157,25 @@ test("random pages, blank ones included, correct the hand-picked estimate", asyn
   await blank.getByLabel("Ordinary page of text").uncheck();
   await expect(blank.getByText(/not ordinary/)).toBeVisible();
 
-  // The app shows the stratified estimate on the counts it OCR'd: 3 chosen, then 4 random pages
-  const counts = await wordCountsOnPage(page);
-  const sampled: EstimatePage[] = counts.map((wordCount, i) => ({
-    origin: i < 3 ? "chosen" : "random",
-    ordinary: i !== 6,
-    wordCount,
-  }));
+  // The app shows the stratified estimate on the counts it OCR'd. Uploads run concurrently, so a random page can
+  // be numbered before the hand-picked ones: read each card's origin and ordinary flag from the card itself
+  const sampled: EstimatePage[] = await Promise.all(
+    (await pageCards(page).getByRole("article").all()).map(async (card) => {
+      const text = await card.innerText();
+      return {
+        origin: /Random · p\./.test(text) ? "random" : "chosen",
+        ordinary: !/not ordinary/.test(text),
+        wordCount: Number(text.match(/([\d,]+) words/)![1].replace(/,/g, "")),
+      };
+    })
+  );
+  expect(sampled.filter((p) => p.origin === "chosen")).toHaveLength(3);
+  expect(sampled.filter((p) => !p.ordinary)).toEqual([{ origin: "random", ordinary: false, wordCount: 0 }]);
   const expected = computeBookEstimate(sampled, 255)!;
   expect(expected.method).toBe("corrected-chosen");
   // The blank page pulls the estimate below the hand-picked pages' mean
-  expect(expected.wordsPerPage).toBeLessThan(computeBookEstimate(sampled.slice(0, 3), 255)!.wordsPerPage);
+  const chosenOnly = computeBookEstimate(sampled.filter((p) => p.origin === "chosen"), 255)!;
+  expect(expected.wordsPerPage).toBeLessThan(chosenOnly.wordsPerPage);
   const estimateCard = page.getByRole("region", { name: "Words per page" });
   await expect(estimateCard.getByText("3 hand-picked, 4 random pages")).toBeVisible();
   await expect(estimateCard.getByText("Not sendable yet")).toBeVisible();
