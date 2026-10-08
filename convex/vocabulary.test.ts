@@ -87,6 +87,19 @@ describe("computeVocabularyStats", () => {
     expect(calibratedPercent).toBeCloseTo(100 * (Math.exp(0.72 / Math.sqrt(12)) - 1), 6);
   });
 
+  test("extrapolates to the book's estimated words, not its page count", () => {
+    const byPages = computeVocabularyStats(pages, 300)!.projection!;
+    expect(byPages.pages).toBe(300);
+    // Sampled pages hold 300 words; a book of 300 pages averaging 240 words holds 240 of them
+    const byWords = computeVocabularyStats(pages, 300, 72_000)!.projection!;
+    expect(byWords.totalPages).toBe(300);
+    expect(byWords.pages).toBe(240);
+    expect(byWords.uniqueWords).toBe(Math.round(growthCurveAt(computeVocabularyStats(pages, 300)!.curve, 240)));
+    expect(byWords.uniqueWords).toBeLessThan(byPages.uniqueWords);
+    // An estimate at the sampled pages' own density reads off at the page count
+    expect(computeVocabularyStats(pages, 300, 90_000)!.projection!.uniqueWords).toBe(byPages.uniqueWords);
+  });
+
   test("skips the projection without the book's page count", () => {
     expect(computeVocabularyStats(pages, undefined)!.projection).toBeNull();
   });

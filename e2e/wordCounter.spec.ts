@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { SLOT_BATCH } from "../convex/sampling.ts";
 import { computeBookEstimate, MIN_RANDOM_PAGES, type EstimatePage } from "../convex/stats.ts";
 import { cleanOcrText, countWords } from "../convex/textAnalysis.ts";
 import { computeVocabularyStats } from "../convex/vocabulary.ts";
@@ -97,8 +98,16 @@ test("photographed pages are OCR'd into word counts and a book estimate", async 
   await expect(page.getByText("Estimated total (255 pages)")).toBeVisible();
   // Hand-picked pages alone read high, so the app flags them and asks for random pages instead of claiming precision
   await expect(page.getByText("Hand-picked pages only")).toBeVisible();
+  const chosenOnly = computeBookEstimate(
+    counts.map((wordCount) => ({ origin: "chosen", ordinary: true, wordCount })),
+    255
+  )!;
+  expect(chosenOnly.randomPagesForSendable).toBeGreaterThanOrEqual(MIN_RANDOM_PAGES);
   await expect(
-    page.getByText(new RegExp(`^Random pages: ${MIN_RANDOM_PAGES} pages more to send, \\d+ for the recommended ±10%$`))
+    page.getByText(
+      `Random pages: ${chosenOnly.randomPagesForSendable} pages more to send, ${chosenOnly.randomPagesForRecommended} for the recommended ±10%`,
+      { exact: true }
+    )
   ).toBeVisible();
   // Vision detects English on these pages, so Flesch scores apply
   await expect(page.getByText("Readability Analysis")).toBeVisible();
@@ -170,8 +179,9 @@ test("random pages, blank ones included, correct the hand-picked estimate", asyn
     )
   ).toBeVisible();
   await expect(estimateCard.getByText(`${expected.totalWords!.toLocaleString("en-US")} words`)).toBeVisible();
-  // Open slots are topped up to what the ±10% target needs
-  await expect(slots).toHaveCount(Math.max(MIN_RANDOM_PAGES - 4, expected.randomPagesForRecommended));
+  // Open slots are topped up toward what the ±10% target needs, one batch at a time
+  expect(expected.randomPagesForRecommended).toBeGreaterThan(SLOT_BATCH);
+  await expect(slots).toHaveCount(SLOT_BATCH);
 });
 
 test("four pages give a unique-word estimate with a growth chart", async ({ page }) => {

@@ -10,6 +10,8 @@
  *    leave-one-page-out jackknife if this sample is noisier.
  */
 
+import { countWords } from "./textAnalysis";
+
 export const MIN_VOCABULARY_PAGES = 4;
 const Z_95 = 1.96;
 // Calibrated on 10 Project Gutenberg novels (scripts/validateVocabulary.ts)
@@ -102,18 +104,25 @@ export function fitQuality(curve: GrowthCurve, rarefied: number[]) {
   };
 }
 
-export function computeVocabularyStats(pageTexts: string[], totalPages: number | undefined) {
+/**
+ * The growth curve is in sampled pages, so it is extrapolated to as many of them as hold the book's text: given the
+ * book's estimated word count, totalWords / (mean words per sampled page). Hand-picked full pages then don't inflate
+ * the projection, and it agrees with wordsPerPage × pageCount. Without a word estimate, to the page count.
+ */
+export function computeVocabularyStats(pageTexts: string[], totalPages: number | undefined, totalWords?: number) {
   const n = pageTexts.length;
   if (n < MIN_VOCABULARY_PAGES) return null;
 
   const pages = pageTexts.map((text) => new Set(vocabularyTokens(text)));
   const { rarefied, fit } = fitPages(pages);
+  const sampledWordsPerPage = pageTexts.reduce((sum, text) => sum + countWords(text), 0) / n;
+  const horizon = totalWords === undefined ? totalPages : Math.round(totalWords / sampledWordsPerPage);
 
   let projection = null;
-  if (totalPages !== undefined && totalPages >= n) {
-    const logEstimate = Math.log(growthCurveAt(fit, totalPages));
+  if (totalPages !== undefined && horizon !== undefined && horizon >= n) {
+    const logEstimate = Math.log(growthCurveAt(fit, horizon));
     const leaveOneOut = pages.map((_, i) =>
-      Math.log(growthCurveAt(fitPages(pages.filter((__, j) => j !== i)).fit, totalPages))
+      Math.log(growthCurveAt(fitPages(pages.filter((__, j) => j !== i)).fit, horizon))
     );
     const meanLoo = leaveOneOut.reduce((s, x) => s + x, 0) / n;
     const jackknifeSd = Math.sqrt(((n - 1) / n) * leaveOneOut.reduce((s, x) => s + (x - meanLoo) ** 2, 0));
@@ -121,6 +130,9 @@ export function computeVocabularyStats(pageTexts: string[], totalPages: number |
     const sd = Math.max(jackknifeSd, calibratedSd);
     projection = {
       totalPages,
+      // Sampled pages' worth of text in the book, where the curve is read off (≈ totalPages for an unbiased sample)
+      pages: horizon,
+      totalWords: totalWords ?? null,
       uniqueWords: Math.round(Math.exp(logEstimate)),
       low: Math.round(Math.exp(logEstimate - Z_95 * sd)),
       high: Math.round(Math.exp(logEstimate + Z_95 * sd)),

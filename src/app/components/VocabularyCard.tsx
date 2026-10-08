@@ -289,7 +289,9 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
 
   const { projection, curve, fitQuality: quality } = stats;
   const n = stats.sampledPages;
-  const lastPage = projection?.totalPages ?? n;
+  // The curve is read off at the sampled pages' worth of text in the book, which is the page count unless the sample
+  // runs fuller or emptier than the book's average page
+  const lastPage = projection?.pages ?? n;
   const phase = (page: number) => (page > n ? "projected" : "fitted");
   const sampledAt = (page: number) => stats.rarefied[page - 1];
 
@@ -304,6 +306,12 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
             95% range {projection.low.toLocaleString()}–{projection.high.toLocaleString()} across all{" "}
             {projection.totalPages.toLocaleString()} pages
           </div>
+          {projection.pages !== projection.totalPages && (
+            <div className="text-xs text-stone-500 mt-1">
+              Projected to the book&apos;s ≈{projection.totalWords!.toLocaleString()} words: as much text as{" "}
+              {projection.pages.toLocaleString()} of the sampled pages
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-sm text-stone-500 mt-1">Add the book&apos;s page count in Book Tracker to extrapolate to the whole book.</p>
@@ -447,8 +455,8 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
             ))}
             {projection && (
               <tr className="border-t border-stone-200 font-medium">
-                <td className="py-1">{projection.totalPages.toLocaleString()} (projected)</td>
-                <td className="text-right py-1">+{growthCurveMarginal(curve, projection.totalPages).toFixed(1)}</td>
+                <td className="py-1">{projection.pages.toLocaleString()} (projected)</td>
+                <td className="text-right py-1">+{growthCurveMarginal(curve, projection.pages).toFixed(1)}</td>
                 <td className="text-right py-1">
                   {fmt(projection.low)}–{fmt(projection.high)}
                 </td>
