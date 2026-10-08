@@ -1,10 +1,25 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-background: #f8fafc;
-  --color-foreground: #0f172a;
+  /* Ink blue, a sibling of Book Tracker's teal (#35686a) and Threeggle's green (#345e49) */
+  --color-brand-50: #f2f5f9;
+  --color-brand-100: #e2e9f1;
+  --color-brand-200: #c6d3e2;
+  --color-brand-300: #9fb3cb;
+  --color-brand-400: #7290b0;
+  --color-brand-500: #527396;
+  --color-brand-600: #3f5d80;
+  --color-brand-700: #34506f;
+  --color-brand-800: #2c435c;
+  --color-brand-900: #26384c;
+  --color-brand-950: #18232f;
+  --color-highlight: #eab04a;
+  --color-paper: #fbf7ee;
+  --color-background: #f8f6f1;
+  --color-foreground: #1c1917;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
   --animate-flash: flash 250ms ease-out forwards;
 
   @keyframes flash {
@@ -28,15 +43,15 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #f5f5f4;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #d6d3d1;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #a8a29e;
 }

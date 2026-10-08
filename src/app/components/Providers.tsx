@@ -4,6 +4,7 @@ import { Authenticated, AuthLoading, ConvexProviderWithAuth, ConvexReactClient, 
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { auth } from "../lib/firebase";
+import { LogoMark } from "./Logo";
 import { SignIn } from "./SignIn";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
@@ -36,7 +37,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <UserContext.Provider value={user}>
       <ConvexProviderWithAuth client={convex} useAuth={useConvexAuthFromFirebase}>
         <AuthLoading>
-          <div className="min-h-screen flex items-center justify-center animate-pulse text-slate-400">Loading...</div>
+          <div className="min-h-screen flex items-center justify-center animate-pulse" aria-label="Loading">
+            <LogoMark size={56} />
+          </div>
         </AuthLoading>
         <Unauthenticated>
           <SignIn />

@@ -93,9 +93,9 @@ export function PageScanner({ bookId, onClose }: { bookId: Id<"books">; onClose:
         {cameraError && (
           <div className="absolute inset-0 flex items-center justify-center p-6">
             <div className="bg-white rounded-xl p-5 text-center max-w-xs">
-              <p className="font-medium text-slate-900">Camera unavailable</p>
-              <p className="text-sm text-slate-500 mt-1">{cameraError}</p>
-              <p className="text-sm text-slate-500 mt-2">Close this and use Choose Photos instead.</p>
+              <p className="font-medium text-stone-900">Camera unavailable</p>
+              <p className="text-sm text-stone-500 mt-1">{cameraError}</p>
+              <p className="text-sm text-stone-500 mt-2">Close this and use Choose Photos instead.</p>
             </div>
           </div>
         )}

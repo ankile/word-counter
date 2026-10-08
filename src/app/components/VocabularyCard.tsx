@@ -8,11 +8,11 @@ import {
   type VocabularyStats,
 } from "../../../convex/vocabulary";
 
-const SERIES = "#2a78d6";
-const GRID = "#e2e8f0";
-const AXIS_TEXT = "#64748b";
-const LABEL_TEXT = "#334155";
-const CROSSHAIR = "#94a3b8";
+const SERIES = "#3f5d80";
+const GRID = "#e7e5e4";
+const AXIS_TEXT = "#78716c";
+const LABEL_TEXT = "#44403c";
+const CROSSHAIR = "#a8a29e";
 const HEIGHT = 220;
 const MARGIN = { top: 16, right: 16, bottom: 36, left: 52 };
 
@@ -109,7 +109,7 @@ function CurveChart(props: CurveChartProps) {
   return (
     <div>
       <div className="flex items-center justify-between gap-3 mb-1">
-        <div className="text-xs text-slate-500">{props.label}</div>
+        <div className="text-xs text-stone-500">{props.label}</div>
         <ScaleToggle scale={scale} onChange={props.onScaleChange} label={`${props.label}: page axis`} />
       </div>
       <div ref={containerRef} className="relative">
@@ -173,10 +173,10 @@ function CurveChart(props: CurveChartProps) {
         )}
         {hoverPage && width > 0 && (
           <div
-            className="pointer-events-none absolute top-2 bg-white/95 border border-slate-200 rounded-lg shadow-sm px-3 py-2 text-xs"
+            className="pointer-events-none absolute top-2 bg-white/95 border border-stone-200 rounded-lg shadow-sm px-3 py-2 text-xs"
             style={x(hoverPage) > width / 2 ? { right: width - x(hoverPage) + 8 } : { left: x(hoverPage) + 8 }}
           >
-            <div className="text-slate-500">Page {hoverPage.toLocaleString()}</div>
+            <div className="text-stone-500">Page {hoverPage.toLocaleString()}</div>
             {props.tooltip(hoverPage)}
           </div>
         )}
@@ -187,13 +187,13 @@ function CurveChart(props: CurveChartProps) {
 
 function ScaleToggle({ scale, onChange, label }: { scale: Scale; onChange: (scale: Scale) => void; label: string }) {
   return (
-    <div className="flex rounded-md border border-slate-200 p-0.5 text-xs shrink-0" role="group" aria-label={label}>
+    <div className="flex rounded-md border border-stone-200 p-0.5 text-xs shrink-0" role="group" aria-label={label}>
       {(["linear", "log"] as const).map((s) => (
         <button
           key={s}
           onClick={() => onChange(s)}
           aria-pressed={scale === s}
-          className={`px-2 py-1 rounded font-medium ${scale === s ? "bg-slate-100 text-slate-900" : "text-slate-500"}`}
+          className={`px-2 py-1 rounded font-medium ${scale === s ? "bg-stone-100 text-stone-900" : "text-stone-500"}`}
         >
           {s === "log" ? "Log" : "Linear"}
         </button>
@@ -205,7 +205,7 @@ function ScaleToggle({ scale, onChange, label }: { scale: Scale; onChange: (scal
 function TooltipRow({ value, label }: { value: string; label: string }) {
   return (
     <div>
-      <span className="font-semibold text-slate-900">{value}</span> <span className="text-slate-500">{label}</span>
+      <span className="font-semibold text-stone-900">{value}</span> <span className="text-stone-500">{label}</span>
     </div>
   );
 }
@@ -213,7 +213,7 @@ function TooltipRow({ value, label }: { value: string; label: string }) {
 /** V(k) = e^a · k^(b + c·ln k), with the fitted numbers. */
 function Equation({ curve: [a, b, c] }: { curve: VocabularyStats["curve"] }) {
   return (
-    <span className="font-mono text-slate-900">
+    <span className="font-mono text-stone-900">
       V(k) = {Math.exp(a).toFixed(1)} · k<sup>{b.toFixed(3)} {c < 0 ? "−" : "+"} {Math.abs(c).toFixed(4)}·ln k</sup>
     </span>
   );
@@ -233,34 +233,34 @@ const SOURCES = [
 function ModelExplainer() {
   return (
     <details className="mt-1 text-sm group">
-      <summary className="cursor-pointer text-xs font-medium text-blue-600 select-none">How is this estimated?</summary>
-      <div className="mt-2 space-y-2 text-xs text-slate-600 leading-relaxed">
+      <summary className="cursor-pointer text-xs font-medium text-brand-600 select-none">How is this estimated?</summary>
+      <div className="mt-2 space-y-2 text-xs text-stone-600 leading-relaxed">
         <p>
-          <span className="font-medium text-slate-900">Growth curve.</span> For every k, we compute the expected
+          <span className="font-medium text-stone-900">Growth curve.</span> For every k, we compute the expected
           number of distinct words in k of your pages taken in random order (rarefaction), so the curve doesn&apos;t
           depend on the order you scanned in.
         </p>
         <p>
-          <span className="font-medium text-slate-900">Model.</span> Vocabulary grows roughly as a power of text
+          <span className="font-medium text-stone-900">Model.</span> Vocabulary grows roughly as a power of text
           length (Heaps&apos; law, V = K·k<sup>β</sup>), but the exponent drifts down as a book goes on: new words get
           rarer as the core vocabulary is used up. So we fit Heaps&apos; law with a slowing exponent, log V = a + b·log k
           + c·(log k)², and extend it to the book&apos;s last page.
         </p>
         <p>
-          <span className="font-medium text-slate-900">How well it works.</span> On 10 full public-domain novels,
+          <span className="font-medium text-stone-900">How well it works.</span> On 10 full public-domain novels,
           plain Heaps&apos; law overestimated whole-book vocabulary by 1.6–1.9×; this curve was within ±3% on average,
           with a typical error of about ±22% from 10 pages and ±13% from 30. The 95% range is calibrated on those
           novels and contained the true count 94–98% of the time.
         </p>
         <p>
-          <span className="font-medium text-slate-900">Caveats.</span> A word is a distinct lowercase word form
+          <span className="font-medium text-stone-900">Caveats.</span> A word is a distinct lowercase word form
           (&ldquo;run&rdquo; and &ldquo;running&rdquo; count separately); OCR errors add a few. Pages spread through
           the book work better than consecutive ones, which share names and topics and run about 5% low.
         </p>
         <ul className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
           {SOURCES.map((source) => (
             <li key={source.href}>
-              <a href={source.href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              <a href={source.href} target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline">
                 {source.label} ↗
               </a>
             </li>
@@ -278,9 +278,9 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
 
   if (!stats) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 className="text-sm font-semibold text-slate-900">Unique words</h3>
-        <p className="text-sm text-slate-500 mt-1">
+      <div className="bg-white rounded-xl border border-stone-200 p-5">
+        <h3 className="font-display text-lg font-semibold text-stone-900">Unique words</h3>
+        <p className="text-sm text-stone-500 mt-1">
           Scan at least {MIN_VOCABULARY_PAGES} pages to estimate the book&apos;s vocabulary ({processedPages} so far).
         </p>
       </div>
@@ -294,33 +294,33 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
   const sampledAt = (page: number) => stats.rarefied[page - 1];
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5">
-      <h3 className="text-sm font-semibold text-slate-900">Unique words</h3>
+    <div className="bg-white rounded-xl border border-stone-200 p-5">
+      <h3 className="font-display text-lg font-semibold text-stone-900">Unique words</h3>
       <ModelExplainer />
       {projection ? (
         <div className="mt-2">
-          <div className="text-3xl font-bold text-slate-900">≈{projection.uniqueWords.toLocaleString()}</div>
-          <div className="text-sm text-slate-500 mt-1">
+          <div className="font-display text-4xl font-semibold text-stone-900">≈{projection.uniqueWords.toLocaleString()}</div>
+          <div className="text-sm text-stone-500 mt-1">
             95% range {projection.low.toLocaleString()}–{projection.high.toLocaleString()} across all{" "}
             {projection.totalPages.toLocaleString()} pages
           </div>
         </div>
       ) : (
-        <p className="text-sm text-slate-500 mt-1">Add the book&apos;s page count in Book Tracker to extrapolate to the whole book.</p>
+        <p className="text-sm text-stone-500 mt-1">Add the book&apos;s page count in Book Tracker to extrapolate to the whole book.</p>
       )}
       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-sm">
         <span>
-          <span className="font-semibold text-slate-900">{stats.seenUniqueWords.toLocaleString()}</span>{" "}
-          <span className="text-slate-500">seen in {n} pages</span>
+          <span className="font-semibold text-stone-900">{stats.seenUniqueWords.toLocaleString()}</span>{" "}
+          <span className="text-stone-500">seen in {n} pages</span>
         </span>
         <span title="Local Heaps' law exponent: 1 would mean every word is new, 0 that no new words appear">
-          <span className="font-semibold text-slate-900">{stats.growthExponent.toFixed(2)}</span>{" "}
-          <span className="text-slate-500">growth exponent</span>
+          <span className="font-semibold text-stone-900">{stats.growthExponent.toFixed(2)}</span>{" "}
+          <span className="text-stone-500">growth exponent</span>
         </span>
       </div>
 
       <div className="mt-5 mb-2">
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-500">
           <span className="inline-flex items-center gap-1.5">
             <svg width="10" height="10" aria-hidden>
               <circle cx="5" cy="5" r="4" fill={SERIES} />
@@ -389,36 +389,36 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
         />
       </div>
 
-      <div className="mt-5 rounded-lg bg-slate-50 p-4 text-sm space-y-2">
+      <div className="mt-5 rounded-lg bg-stone-50 p-4 text-sm space-y-2">
         <div>
-          <div className="text-xs text-slate-500 mb-0.5">Fitted curve (k = pages)</div>
+          <div className="text-xs text-stone-500 mb-0.5">Fitted curve (k = pages)</div>
           <Equation curve={curve} />
         </div>
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
           <div>
-            <dt className="text-xs text-slate-500">R² (log-log)</dt>
-            <dd className="font-semibold text-slate-900 tabular-nums">{quality.r2.toFixed(4)}</dd>
+            <dt className="text-xs text-stone-500">R² (log-log)</dt>
+            <dd className="font-semibold text-stone-900 tabular-nums">{quality.r2.toFixed(4)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-slate-500">Residual, RMS / max</dt>
-            <dd className="font-semibold text-slate-900 tabular-nums">
+            <dt className="text-xs text-stone-500">Residual, RMS / max</dt>
+            <dd className="font-semibold text-stone-900 tabular-nums">
               {pct(quality.rmsResidualPercent)}% / {pct(quality.maxResidualPercent)}%
             </dd>
           </div>
           {projection && (
             <>
               <div>
-                <dt className="text-xs text-slate-500">Leave-one-page-out</dt>
-                <dd className="font-semibold text-slate-900 tabular-nums">±{projection.leaveOneOutPercent.toFixed(1)}%</dd>
+                <dt className="text-xs text-stone-500">Leave-one-page-out</dt>
+                <dd className="font-semibold text-stone-900 tabular-nums">±{projection.leaveOneOutPercent.toFixed(1)}%</dd>
               </div>
               <div>
-                <dt className="text-xs text-slate-500">Error on 10 novels</dt>
-                <dd className="font-semibold text-slate-900 tabular-nums">±{projection.calibratedPercent.toFixed(1)}%</dd>
+                <dt className="text-xs text-stone-500">Error on 10 novels</dt>
+                <dd className="font-semibold text-stone-900 tabular-nums">±{projection.calibratedPercent.toFixed(1)}%</dd>
               </div>
             </>
           )}
         </dl>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-stone-500">
           R² and residuals show how closely the curve follows your sampled pages. They are near-perfect by
           construction, so they say little about the extrapolation. The projection&apos;s uncertainty is the larger of
           the last two (one standard deviation each); the 95% range spans about twice that either side.
@@ -426,9 +426,9 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
       </div>
 
       <details className="mt-3 text-sm">
-        <summary className="cursor-pointer text-xs font-medium text-blue-600">Show data</summary>
+        <summary className="cursor-pointer text-xs font-medium text-brand-600">Show data</summary>
         <table className="mt-2 w-full text-xs tabular-nums">
-          <thead className="text-slate-500">
+          <thead className="text-stone-500">
             <tr>
               <th className="text-left font-medium py-1">Pages</th>
               <th className="text-right font-medium py-1">New words</th>
@@ -436,9 +436,9 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
               <th className="text-right font-medium py-1">Fitted</th>
             </tr>
           </thead>
-          <tbody className="text-slate-700">
+          <tbody className="text-stone-700">
             {stats.rarefied.map((p) => (
-              <tr key={p.page} className="border-t border-slate-100">
+              <tr key={p.page} className="border-t border-stone-100">
                 <td className="py-1">{p.page}</td>
                 <td className="text-right py-1">+{p.marginal}</td>
                 <td className="text-right py-1">{fmt(p.cumulative)}</td>
@@ -446,7 +446,7 @@ export function VocabularyCard({ stats, processedPages }: { stats: VocabularySta
               </tr>
             ))}
             {projection && (
-              <tr className="border-t border-slate-200 font-medium">
+              <tr className="border-t border-stone-200 font-medium">
                 <td className="py-1">{projection.totalPages.toLocaleString()} (projected)</td>
                 <td className="text-right py-1">+{growthCurveMarginal(curve, projection.totalPages).toFixed(1)}</td>
                 <td className="text-right py-1">

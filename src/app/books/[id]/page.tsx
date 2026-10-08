@@ -16,7 +16,7 @@ import { VocabularyCard } from "../../components/VocabularyCard";
 const backLink = (
   <Link
     href="/"
-    className="text-blue-600 hover:text-blue-700 text-sm font-medium inline-flex items-center gap-1"
+    className="text-brand-600 hover:text-brand-700 text-sm font-medium inline-flex items-center gap-1"
   >
     <ChevronLeftIcon className="w-4 h-4" />
     Back to library
@@ -38,16 +38,16 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
 
   if (book === undefined) {
     return (
-      <AppShell header={<div className="animate-pulse h-6 w-32 bg-slate-200 rounded" />}>
-        <div className="animate-pulse text-slate-400">Loading...</div>
+      <AppShell nav={<div className="animate-pulse h-5 w-32 bg-stone-200 rounded" />}>
+        <div className="animate-pulse text-stone-400">Loading...</div>
       </AppShell>
     );
   }
 
   if (book === null) {
     return (
-      <AppShell header={backLink}>
-        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-red-600 font-medium">
+      <AppShell nav={backLink}>
+        <div className="bg-white rounded-xl border border-stone-200 p-8 text-center text-red-600 font-medium">
           Book not found
         </div>
       </AppShell>
@@ -64,16 +64,16 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
   const readability = book.avgReadability;
 
   return (
-    <AppShell header={backLink}>
+    <AppShell nav={backLink}>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">{book.title}</h1>
-        {book.author && <p className="text-slate-500 mt-1">by {book.author}</p>}
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-stone-900">{book.title}</h1>
+        {book.author && <p className="text-stone-500 mt-1">by {book.author}</p>}
 
         <div className="flex flex-wrap gap-4 mt-4 text-sm">
           {stats.map((stat) => (
             <div key={stat.label} className="flex items-center gap-2">
-              <span className="text-slate-500">{stat.label}:</span>
-              <span className="font-semibold text-slate-900">{stat.value}</span>
+              <span className="text-stone-500">{stat.label}:</span>
+              <span className="font-semibold text-stone-900">{stat.value}</span>
             </div>
           ))}
         </div>
@@ -95,8 +95,8 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
         )}
 
         {readability && (
-          <div className="mt-6 bg-white rounded-xl border border-slate-200 p-5">
-            <h3 className="text-sm font-semibold text-slate-900 mb-4">Readability Analysis</h3>
+          <div className="mt-6 bg-white rounded-xl border border-stone-200 p-5">
+            <h3 className="font-display text-lg font-semibold text-stone-900 mb-4">Readability Analysis</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
                 { label: "Grade Level", value: readability.fleschKincaidGrade },
@@ -104,14 +104,14 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
                 { label: "Words/Sentence", value: readability.avgWordsPerSentence },
                 { label: "Syllables/Word", value: readability.avgSyllablesPerWord },
               ].map((tile) => (
-                <div key={tile.label} className="text-center p-3 bg-slate-50 rounded-lg">
-                  <div className="text-2xl font-bold text-slate-900">{tile.value}</div>
-                  <div className="text-xs text-slate-500 mt-1">{tile.label}</div>
+                <div key={tile.label} className="text-center p-3 bg-stone-50 rounded-lg">
+                  <div className="text-2xl font-bold text-stone-900">{tile.value}</div>
+                  <div className="text-xs text-stone-500 mt-1">{tile.label}</div>
                 </div>
               ))}
             </div>
             <div className="mt-4 text-center">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-brand-100 text-brand-800">
                 {readability.readingLevel}
               </span>
             </div>
@@ -120,10 +120,10 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
       </div>
 
       <section>
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+        <h2 className="font-display text-xl font-semibold text-stone-900 mb-4">
           Pages
           {book.pageCount > 0 && (
-            <span className="text-sm font-normal text-slate-500 ml-2">
+            <span className="text-sm font-normal text-stone-500 ml-2">
               ({book.processedCount}/{book.pageCount} processed)
             </span>
           )}
@@ -134,7 +134,7 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
       {!book.trackerBookId && (
         <button
           onClick={handleDelete}
-          className="mt-8 text-sm text-slate-400 hover:text-red-600 transition-colors"
+          className="mt-8 text-sm text-stone-400 hover:text-red-600 transition-colors"
         >
           Delete book
         </button>

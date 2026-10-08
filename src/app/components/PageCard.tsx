@@ -12,7 +12,7 @@ type Size = { width: number; height: number };
 
 const statusConfig: Record<PageStatus, { className: string; label: string }> = {
   pending: { className: "bg-amber-100 text-amber-700", label: "Pending" },
-  processing: { className: "bg-blue-100 text-blue-700", label: "Processing" },
+  processing: { className: "bg-brand-100 text-brand-700", label: "Processing" },
   done: { className: "bg-green-100 text-green-700", label: "Done" },
   error: { className: "bg-red-100 text-red-700", label: "Error" },
 };
@@ -114,9 +114,9 @@ export function PageCard({ page }: { page: Page }) {
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+      <div className="bg-white rounded-xl border border-stone-200 overflow-hidden hover:shadow-md transition-shadow">
         {/* Image area */}
-        <div className="aspect-[3/4] relative bg-slate-100">
+        <div className="aspect-[3/4] relative bg-stone-100">
           {page.imageUrl && (
             <>
               {/* Plain <img>: the overlay needs the original image's pixel dimensions */}
@@ -133,7 +133,7 @@ export function PageCard({ page }: { page: Page }) {
               {overlay}
             </>
           )}
-          <div className="absolute top-3 left-3 bg-slate-900/70 text-white text-xs font-medium px-2 py-1 rounded-md">
+          <div className="absolute top-3 left-3 bg-stone-900/70 text-white text-xs font-medium px-2 py-1 rounded-md">
             Page {page.pageNumber}
           </div>
           {hasBoxes && (
@@ -141,7 +141,7 @@ export function PageCard({ page }: { page: Page }) {
               active={showOverlay}
               onToggle={toggleOverlay}
               className={`absolute top-3 right-3 text-xs px-2.5 py-1 rounded-md ${
-                showOverlay ? "bg-blue-600 text-white" : "bg-white/90 text-slate-700 hover:bg-white"
+                showOverlay ? "bg-brand-700 text-white" : "bg-white/90 text-stone-700 hover:bg-white"
               }`}
             />
           )}
@@ -152,14 +152,14 @@ export function PageCard({ page }: { page: Page }) {
           <div className="flex items-center justify-between mb-3">
             <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.className}`}>{status.label}</span>
             {page.status === "done" && page.wordCount !== undefined && (
-              <span className="text-sm font-semibold text-slate-900">{page.wordCount.toLocaleString()} words</span>
+              <span className="text-sm font-semibold text-stone-900">{page.wordCount.toLocaleString()} words</span>
             )}
           </div>
 
           {page.status === "done" && page.readability && (
-            <div className="flex items-center gap-3 text-xs text-slate-500 mb-3">
+            <div className="flex items-center gap-3 text-xs text-stone-500 mb-3">
               <span title="Flesch-Kincaid Grade Level">Grade {page.readability.fleschKincaidGrade}</span>
-              <span className="text-slate-300">|</span>
+              <span className="text-stone-300">|</span>
               <span title={page.readability.readingLevel}>Ease: {page.readability.fleschReadingEase.toFixed(0)}</span>
             </div>
           )}
@@ -174,28 +174,28 @@ export function PageCard({ page }: { page: Page }) {
             <div className="mb-3">
               <button
                 onClick={() => setShowText(!showText)}
-                className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                className="text-xs font-medium text-brand-600 hover:text-brand-700"
               >
                 {showText ? "Hide extracted text" : "Show extracted text"}
               </button>
               {showText && (
-                <pre className="mt-2 text-xs text-slate-600 bg-slate-50 p-3 rounded-lg max-h-40 overflow-auto whitespace-pre-wrap border border-slate-100">
+                <pre className="mt-2 text-xs text-stone-600 bg-stone-50 p-3 rounded-lg max-h-40 overflow-auto whitespace-pre-wrap border border-stone-100">
                   {page.extractedText}
                 </pre>
               )}
             </div>
           )}
 
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-3 pt-2 border-t border-stone-100">
             <button
               onClick={() => reprocessPage({ id: page._id })}
-              className="text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors"
+              className="text-xs font-medium text-stone-500 hover:text-brand-600 transition-colors"
             >
               Re-process
             </button>
             <button
               onClick={handleDelete}
-              className="text-xs font-medium text-slate-500 hover:text-red-600 transition-colors"
+              className="text-xs font-medium text-stone-500 hover:text-red-600 transition-colors"
             >
               Delete
             </button>
@@ -219,11 +219,11 @@ export function PageCard({ page }: { page: Page }) {
               active={showOverlay}
               onToggle={toggleOverlay}
               className={`absolute top-4 left-4 text-sm px-3 py-2 rounded-lg ${
-                showOverlay ? "bg-blue-600 text-white" : "bg-white/10 text-white hover:bg-white/20"
+                showOverlay ? "bg-brand-700 text-white" : "bg-white/10 text-white hover:bg-white/20"
               }`}
             />
           )}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-sm px-4 py-2 rounded-lg">
+          <div className="absolute bottom-4 left-1/2 -transtone-x-1/2 bg-black/60 text-white text-sm px-4 py-2 rounded-lg">
             Page {page.pageNumber}
             {page.wordCount !== undefined && ` • ${page.wordCount.toLocaleString()} words`}
           </div>

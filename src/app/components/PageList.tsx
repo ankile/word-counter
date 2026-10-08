@@ -9,11 +9,11 @@ export function PageList({ bookId }: { bookId: Id<"books"> }) {
   const pages = useQuery(api.pages.listByBook, { bookId });
 
   if (pages === undefined) {
-    return <div className="animate-pulse text-slate-400">Loading pages...</div>;
+    return <div className="animate-pulse text-stone-400">Loading pages...</div>;
   }
 
   if (pages.length === 0) {
-    return <div className="text-center py-8 text-slate-500">No pages yet. Upload some photos above!</div>;
+    return <div className="text-center py-8 text-stone-500">No pages yet. Upload some photos above!</div>;
   }
 
   return (

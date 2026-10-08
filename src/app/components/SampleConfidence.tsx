@@ -14,11 +14,11 @@ const confidenceConfig: Record<
     label: "Low Confidence",
   },
   medium: {
-    bg: "bg-blue-50",
-    border: "border-blue-200",
-    badge: "bg-blue-100 text-blue-700",
-    icon: "text-blue-500",
-    bar: "bg-blue-500",
+    bg: "bg-brand-50",
+    border: "border-brand-200",
+    badge: "bg-brand-100 text-brand-700",
+    icon: "text-brand-500",
+    bar: "bg-brand-500",
     label: "Medium Confidence",
   },
   high: {
@@ -43,8 +43,8 @@ export function SampleConfidence({ stats, totalBookPages }: SampleConfidenceProp
     <div className={`rounded-xl border ${config.border} ${config.bg} p-5`}>
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">Sampling Analysis</h3>
-          <p className="text-xs text-slate-500 mt-0.5">Based on {stats.sampleSize} sampled pages</p>
+          <h3 className="font-display text-lg font-semibold text-stone-900">Sampling Analysis</h3>
+          <p className="text-xs text-stone-500 mt-0.5">Based on {stats.sampleSize} sampled pages</p>
         </div>
         <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${config.badge}`}>{config.label}</span>
       </div>
@@ -57,26 +57,26 @@ export function SampleConfidence({ stats, totalBookPages }: SampleConfidenceProp
           { label: "Current margin", value: `±${stats.currentMarginPercent}%` },
         ].map((tile) => (
           <div key={tile.label} className="bg-white/60 rounded-lg p-3">
-            <div className="text-lg font-bold text-slate-900">{tile.value}</div>
-            <div className="text-xs text-slate-500">{tile.label}</div>
+            <div className="text-lg font-bold text-stone-900">{tile.value}</div>
+            <div className="text-xs text-stone-500">{tile.label}</div>
           </div>
         ))}
       </div>
 
       <div className="bg-white/60 rounded-lg p-3 mb-4">
-        <div className="text-xs text-slate-500 mb-1">95% CI for words per page</div>
-        <div className="text-sm font-medium text-slate-900">
+        <div className="text-xs text-stone-500 mb-1">95% CI for words per page</div>
+        <div className="text-sm font-medium text-stone-900">
           {stats.ciLowerPerPage.toLocaleString()} – {stats.ciUpperPerPage.toLocaleString()} words
         </div>
       </div>
 
       {totalBookPages !== undefined && (
         <div className="bg-white/60 rounded-lg p-3 mb-4">
-          <div className="text-xs text-slate-500 mb-1">Estimated total ({totalBookPages} pages)</div>
-          <div className="text-sm font-medium text-slate-900">
+          <div className="text-xs text-stone-500 mb-1">Estimated total ({totalBookPages} pages)</div>
+          <div className="text-sm font-medium text-stone-900">
             {Math.round(stats.mean * totalBookPages).toLocaleString()} words
           </div>
-          <div className="text-xs text-slate-500 mt-1">
+          <div className="text-xs text-stone-500 mt-1">
             95% CI: {(stats.ciLowerPerPage * totalBookPages).toLocaleString()} –{" "}
             {(stats.ciUpperPerPage * totalBookPages).toLocaleString()}
           </div>
@@ -88,23 +88,23 @@ export function SampleConfidence({ stats, totalBookPages }: SampleConfidenceProp
           <>
             <InfoIcon className={`w-5 h-5 ${config.icon} flex-shrink-0 mt-0.5`} />
             <div>
-              <span className="font-medium text-slate-700">Add ~{stats.additionalPagesNeeded} more pages</span>
-              <span className="text-slate-500"> for ±10% precision at 95% confidence</span>
+              <span className="font-medium text-stone-700">Add ~{stats.additionalPagesNeeded} more pages</span>
+              <span className="text-stone-500"> for ±10% precision at 95% confidence</span>
             </div>
           </>
         ) : (
           <>
             <CheckCircleIcon className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
             <div>
-              <span className="font-medium text-slate-700">Sample size is sufficient</span>
-              <span className="text-slate-500"> for ±10% precision at 95% confidence</span>
+              <span className="font-medium text-stone-700">Sample size is sufficient</span>
+              <span className="text-stone-500"> for ±10% precision at 95% confidence</span>
             </div>
           </>
         )}
       </div>
 
       <div className="mt-4">
-        <div className="flex justify-between text-xs text-slate-500 mb-1">
+        <div className="flex justify-between text-xs text-stone-500 mb-1">
           <span>Sample progress</span>
           <span>
             {stats.sampleSize} / {stats.recommendedSampleSize} pages

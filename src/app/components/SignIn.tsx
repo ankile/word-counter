@@ -4,6 +4,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import type { FirebaseError } from "firebase/app";
 import { useState } from "react";
 import { auth } from "../lib/firebase";
+import { LogoMark } from "./Logo";
 
 export function SignIn() {
   const [email, setEmail] = useState("");
@@ -23,15 +24,21 @@ export function SignIn() {
   };
 
   const inputClass =
-    "w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+    "w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-lg text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent";
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Word Counter</h1>
-          <p className="text-sm text-slate-500 mt-1">Sign in with your Book Tracker account</p>
+    <main className="min-h-screen flex flex-col items-center justify-center gap-8 p-4 bg-brand-800 bg-[radial-gradient(circle_at_50%_30%,rgb(255_255_255/0.12),transparent_24rem)]">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <div className="rounded-[22%] shadow-lg shadow-brand-950/30 ring-1 ring-white/15">
+          <LogoMark size={72} />
         </div>
+        <div>
+          <h1 className="font-display text-4xl font-semibold tracking-tight text-white">Word Counter</h1>
+          <p className="text-brand-100 mt-2">How many words are in that book?</p>
+        </div>
+      </div>
+      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-2xl shadow-xl shadow-brand-950/20 p-6 space-y-4">
+        <p className="text-sm text-stone-500">Sign in with your Book Tracker account</p>
         <input
           type="email"
           autoComplete="email"
@@ -54,7 +61,7 @@ export function SignIn() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="w-full py-3 bg-brand-700 text-white font-medium rounded-lg hover:bg-brand-800 disabled:opacity-50 transition-colors"
         >
           {submitting ? "Signing in..." : "Sign in"}
         </button>
