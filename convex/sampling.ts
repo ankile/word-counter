@@ -10,6 +10,16 @@ interface SlotPage {
   bookPage?: number;
 }
 
+// Most random pages to have open at once. The estimate, and so how many pages it still wants, changes with every
+// page counted (a page awaiting OCR or the ordinary tick can briefly make it want hundreds), so slots are drawn in
+// batches and refilled as they're photographed.
+export const SLOT_BATCH = 10;
+
+/** Slots to draw so the open ones cover what the estimate wants, up to a batch. */
+export function slotShortfall(wanted: number, inFlight: number, open: number): number {
+  return Math.max(0, Math.min(wanted - inFlight, SLOT_BATCH) - open);
+}
+
 /** Draw up to `count` page numbers uniformly without replacement from 1..totalPages, skipping `taken`. */
 export function drawPages(totalPages: number, taken: number[], count: number, random = Math.random): number[] {
   const skip = new Set(taken);
@@ -27,6 +37,21 @@ export function drawPages(totalPages: number, taken: number[], count: number, ra
 export function openSlots(slots: number[], pages: SlotPage[]): number[] {
   const filled = new Set(pages.flatMap((p) => (p.origin === "random" ? [p.bookPage!] : [])));
   return slots.filter((slot) => !filled.has(slot));
+}
+
+/**
+ * When the book's page count grows, the slots so far came from 1..oldTotal only, so the new pages (often back matter:
+ * notes, index, appendix) would be under-sampled. Draw extra slots from oldTotal+1..newTotal until they hold their
+ * share of all slots, (newTotal − oldTotal) / newTotal, which makes the sample uniform over the whole book again.
+ */
+export function growSlots(slots: number[], oldTotal: number, newTotal: number, random = Math.random): number[] {
+  const share = (newTotal - oldTotal) / newTotal;
+  const inNewPages = slots.filter((slot) => slot > oldTotal);
+  // (inNewPages + add) / (slots + add) = share
+  const add = Math.round((share * slots.length - inNewPages.length) / (1 - share));
+  if (add <= 0) return slots;
+  const offsets = inNewPages.map((slot) => slot - oldTotal);
+  return [...slots, ...drawPages(newTotal - oldTotal, offsets, add, random).map((offset) => offset + oldTotal)];
 }
 
 /**

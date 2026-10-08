@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { drawPages, openSlots, shrinkSlots } from "./sampling";
+import { drawPages, growSlots, openSlots, shrinkSlots, SLOT_BATCH, slotShortfall } from "./sampling";
 
 describe("drawPages", () => {
   test("draws distinct pages in 1..totalPages, skipping taken ones", () => {
@@ -23,6 +23,17 @@ describe("drawPages", () => {
   });
 });
 
+test("open slots cover what the estimate wants, a batch at a time", () => {
+  // Nothing drawn yet: the minimum sample
+  expect(slotShortfall(8, 0, 0)).toBe(8);
+  // A large need opens one batch, refilled as slots are photographed
+  expect(slotShortfall(173, 0, 4)).toBe(SLOT_BATCH - 4);
+  expect(slotShortfall(173, 0, SLOT_BATCH)).toBe(0);
+  // Pages awaiting OCR already fill slots; open slots beyond the need stay
+  expect(slotShortfall(6, 2, 3)).toBe(1);
+  expect(slotShortfall(2, 0, 5)).toBe(0);
+});
+
 test("a slot stays open until a random page carries its page number", () => {
   const pages = [
     { origin: "random" as const, bookPage: 214 },
@@ -30,6 +41,30 @@ test("a slot stays open until a random page carries its page number", () => {
     { origin: "chosen" as const, bookPage: 37 },
   ];
   expect(openSlots([214, 37, 120], pages)).toEqual([37, 120]);
+});
+
+describe("growSlots", () => {
+  const slots = [10, 20, 30, 40, 50, 60, 70, 80];
+
+  test("draws from the new pages until they hold their share of the slots", () => {
+    // 100 → 200 pages: the new half needs half the slots
+    const grown = growSlots(slots, 100, 200);
+    expect(grown.slice(0, 8)).toEqual(slots);
+    const added = grown.slice(8);
+    expect(added).toHaveLength(8);
+    expect(new Set(added).size).toBe(8);
+    for (const page of added) {
+      expect(page).toBeGreaterThan(100);
+      expect(page).toBeLessThanOrEqual(200);
+    }
+    // 100 → 110: one in eleven slots, so one more
+    expect(growSlots(slots, 100, 110).slice(8)).toHaveLength(1);
+  });
+
+  test("leaves slots alone when the new pages already have their share, or there are none", () => {
+    expect(growSlots([...slots, 150, 160, 170, 180, 190, 101, 102, 103], 100, 200)).toHaveLength(16);
+    expect(growSlots([], 100, 200)).toEqual([]);
+  });
 });
 
 test("slots past a shrunken totalPages drop out and their photos become chosen", () => {

@@ -3,10 +3,11 @@ import { buildWordEstimatePayload, publishBlocker, samePayload, type PublishInpu
 import { computeBookEstimate, MIN_RANDOM_PAGES, type EstimatePage } from "./stats";
 import { analyzeText } from "./textAnalysis";
 
-const random = (...counts: number[]): EstimatePage[] =>
-  counts.map((wordCount) => ({ origin: "random", ordinary: true, wordCount }));
+const random = (ordinary: boolean, ...counts: number[]): EstimatePage[] =>
+  counts.map((wordCount) => ({ origin: "random", ordinary, wordCount }));
 
-const SENDABLE = computeBookEstimate(random(300, 320, 280, 300, 310, 290, 305, 295), 400)!;
+// Six ordinary pages and two others of similar length: tight enough for ±10%
+const SENDABLE = computeBookEstimate([...random(true, 300, 320, 280, 300, 310, 290), ...random(false, 295, 305)], 400)!;
 const readability = { ...analyzeText("The cat sat on the mat."), readingLevel: "Very Easy (5th grade)" };
 
 const input = (overrides: Partial<PublishInput> = {}): PublishInput => ({
@@ -45,10 +46,13 @@ describe("publishBlocker", () => {
       [300, 310, 290].map((wordCount) => ({ origin: "chosen" as const, ordinary: true, wordCount })),
       400
     )!;
-    expect(publishBlocker(input({ estimate: chosenOnly, randomPages: 0 }))).toBe(`Add ${MIN_RANDOM_PAGES} random pages to send`);
+    expect(chosenOnly.randomPagesForSendable).toBeGreaterThanOrEqual(MIN_RANDOM_PAGES);
+    expect(publishBlocker(input({ estimate: chosenOnly, randomPages: 0 }))).toBe(
+      `Add ${chosenOnly.randomPagesForSendable} random pages to send`
+    );
     // Too few pages for any estimate yet
     expect(publishBlocker(input({ estimate: null, randomPages: 1 }))).toBe(`Add ${MIN_RANDOM_PAGES - 1} random pages to send`);
-    const wide = computeBookEstimate(random(100, 500, 100, 500, 100, 500, 100, 500), 400)!;
+    const wide = computeBookEstimate([...random(true, 100, 500, 100, 500, 100, 500), ...random(false, 100, 500)], 400)!;
     expect(publishBlocker(input({ estimate: wide }))).toBe(`Add ${wide.randomPagesForSendable} random pages to send`);
   });
 });
@@ -63,7 +67,7 @@ describe("buildWordEstimatePayload", () => {
       pageCountBasis: 400,
       chosenPages: 0,
       randomPages: 8,
-      ordinaryShare: 1,
+      ordinaryShare: 0.75,
       wordsPerPage: SENDABLE.wordsPerPage,
       wordsPerPageLow: SENDABLE.wordsPerPageLow,
       wordsPerPageHigh: SENDABLE.wordsPerPageHigh,

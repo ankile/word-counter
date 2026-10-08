@@ -4,7 +4,7 @@ import { mutation, query, type QueryCtx } from "./_generated/server";
 import { requireOwnedBook, requireUserId } from "./auth";
 import { deletePage, pagesForBook } from "./pages";
 import { buildWordEstimatePayload, publishBlocker, samePayload } from "./publish";
-import { drawPages, openSlots, shrinkSlots } from "./sampling";
+import { drawPages, growSlots, openSlots, shrinkSlots, slotShortfall } from "./sampling";
 import { averageReadability, computeBookEstimate, MIN_RANDOM_PAGES } from "./stats";
 import { COUNTING_VERSION } from "./textAnalysis";
 import { wordEstimatePayload } from "./validators";
@@ -48,8 +48,8 @@ async function sampleState(ctx: QueryCtx, book: Doc<"books">) {
     estimate,
     randomDone,
     openSlots: open,
-    // Slots to draw so that the open ones cover what ±10% needs
-    slotShortfall: book.totalPages === undefined ? 0 : Math.max(0, wanted - randomInFlight - open.length),
+    // Slots to draw so that the open ones cover what ±10% needs, a batch at a time
+    slotShortfall: book.totalPages === undefined ? 0 : slotShortfall(wanted, randomInFlight, open.length),
   };
 }
 
@@ -82,9 +82,11 @@ export const get = query({
     // Flesch scores are English-only
     const readability =
       language === "en" ? averageReadability(processed.flatMap((p) => (p.readability ? [p.readability] : []))) : null;
+    // Extrapolated to the estimated word count, so it matches wordsPerPage × pageCount
     const vocabulary = computeVocabularyStats(
       processed.map((p) => p.extractedText!),
-      book.totalPages
+      book.totalPages,
+      estimate?.totalWords ?? undefined
     );
 
     const publishInput = {
@@ -134,7 +136,7 @@ export const remove = mutation({
   },
 });
 
-/** Draw random pages until the open slots cover what the ±10% target needs. No-op when they already do. */
+/** Draw random pages until the open slots cover what the ±10% target needs, a batch at a time. No-op when they do. */
 export const topUpRandomSlots = mutation({
   args: { id: v.id("books") },
   handler: async (ctx, args) => {
@@ -254,15 +256,17 @@ export const syncFromTracker = mutation({
       if (changed) {
         await ctx.db.patch("books", current._id, { trackerBookId, ...fields });
       }
-      // A shorter book: random pages past its new end no longer come from a uniform draw
-      if (fields.totalPages !== undefined && fields.totalPages < (current.totalPages ?? Infinity)) {
-        const { slots, demote } = shrinkSlots(
-          current.randomSlots ?? [],
-          await pagesForBook(ctx, current._id),
-          fields.totalPages
-        );
-        await ctx.db.patch("books", current._id, { randomSlots: slots });
-        for (const page of demote) await ctx.db.patch("pages", page._id, { origin: "chosen" });
+      // A new page count leaves the random pages drawn from the wrong range
+      const [oldTotal, newTotal] = [current.totalPages, fields.totalPages];
+      if (current.randomSlots?.length && oldTotal !== undefined && newTotal !== undefined && newTotal !== oldTotal) {
+        if (newTotal < oldTotal) {
+          // Random pages past the new end no longer come from a uniform draw
+          const { slots, demote } = shrinkSlots(current.randomSlots, await pagesForBook(ctx, current._id), newTotal);
+          await ctx.db.patch("books", current._id, { randomSlots: slots });
+          for (const page of demote) await ctx.db.patch("pages", page._id, { origin: "chosen" });
+        } else {
+          await ctx.db.patch("books", current._id, { randomSlots: growSlots(current.randomSlots, oldTotal, newTotal) });
+        }
       }
     }
 

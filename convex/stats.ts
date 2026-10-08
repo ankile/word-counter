@@ -67,10 +67,13 @@ function marginWithMore(m: Moments, k: number): number {
   const nOrd = m.nOrd + m.p * k;
   const nOth = m.nOth + (1 - m.p) * k;
   const nRandom = m.nRandom + k;
+  // The uncertainty in p uses the Agresti–Coull share (x + 2) / (n + 4): with p̂ = 1 (no page that isn't ordinary
+  // drawn yet) p̂(1 − p̂) = 0 would claim p is known exactly, and the interval would miss far more than 5% of the time
+  const pAdjusted = (m.p * nRandom + 2) / (nRandom + 4);
   const variance =
     (m.p > 0 ? (m.p ** 2 * m.varOrd) / nOrd : 0) +
     (m.p < 1 ? ((1 - m.p) ** 2 * m.varOth) / nOth : 0) +
-    (nRandom > 0 ? ((m.meanOrd - m.meanOth) ** 2 * m.p * (1 - m.p)) / nRandom : 0);
+    (nRandom > 0 ? ((m.meanOrd - m.meanOth) ** 2 * pAdjusted * (1 - pAdjusted)) / nRandom : 0);
   const wordsPerPage = wordsPerPageOf(m);
   const df = Math.round(nOrd + nOth) - m.dfLoss;
   return wordsPerPage > 0 ? (tCritical95(df) * Math.sqrt(variance)) / wordsPerPage : 0;
@@ -139,6 +142,7 @@ export function computeBookEstimate(pages: EstimatePage[], totalPages: number | 
     moments = {
       p: (random.length - other.length) / random.length,
       meanOrd: ordinary.length > 0 ? mean(ordinary) : 0,
+      // No page that isn't ordinary yet: assume a blank one, the conservative gap for the uncertainty in p
       meanOth: other.length > 0 ? mean(other) : 0,
       varOrd: ordinary.length >= 2 ? sampleVariance(ordinary) : fallbackVariance,
       varOth: other.length >= 2 ? sampleVariance(other) : fallbackVariance,

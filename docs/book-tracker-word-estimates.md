@@ -68,11 +68,19 @@ to the plain mean of the random pages.
 Variance comes from the usual stratified (delta-method) approximation:
 
 ```
-Var ≈ p²·s²_ord/n_ord + (1−p)²·s²_oth/n_oth + (mean_ord − mean_oth)²·p(1−p)/n_random
+Var ≈ p²·s²_ord/n_ord + (1−p)²·s²_oth/n_oth + (mean_ord − mean_oth)²·p̃(1−p̃)/n_random
+p̃ = (x + 2)/(n_random + 4)      (Agresti–Coull; x = random pages that are ordinary)
 ```
 
+`p` (the point estimate) is `x/n_random`, but the uncertainty in it uses `p̃`. With plain `p`, a sample whose random
+pages are all ordinary has `p = 1` and claims `p` is known exactly. Simulated on 300-page books with 10 chosen pages,
+that interval missed the true value 23–38% of the time when the book first became sendable (nominal 5%). With `p̃` it
+missed 0–0.3% at first send and 1.5–5.9% at ±10%, at the cost of about 5 more random pages to send (13–16 instead
+of 9–13) and 30–47 to reach ±10%.
+
 When there are fewer than 2 other pages, `s²_oth` falls back to the variance of all random pages. When there are
-none, that term is 0 and `p = 1`. The 95% interval uses Student's t with the total sampled pages minus 2 as degrees
+none, that term is 0 and `p = 1`, and `mean_oth` is taken as 0 in the `p̃` term: a blank page, the conservative
+gap. The 95% interval uses Student's t with the total sampled pages minus 2 as degrees
 of freedom, which is good enough. The agents may swap in a seeded bootstrap if it holds up better in tests; the
 contract only fixes the outputs.
 
@@ -119,8 +127,9 @@ the owner can untick existing chosen pages that turn out to be chapter openings.
   few words, and that is the true count; the user marks it not ordinary. Skipping such pages is exactly the bias the
   random pages exist to correct. If the page can't be photographed at all (missing, torn), allow replacing the slot
   with a fresh draw. That is the only way to leave one.
-- If `totalPages` changes in Book Tracker, slots beyond the new count drop out. Their photos stay, recorded as
-  `chosen`.
+- If `totalPages` shrinks in Book Tracker, slots beyond the new count drop out. Their photos stay, recorded as
+  `chosen`. If it grows, extra slots are drawn from the new pages until they hold their share of all slots,
+  `(new − old)/new`, so the back matter that often makes up the difference isn't under-sampled.
 
 ### W4. Freeze the counting rule
 
@@ -244,10 +253,16 @@ W1–W8 are built. Where the spec left a choice open:
   Unknown `totalPages` gives `pageCountBasis` and the totals as `null`.
 - `chosenPages` counts the chosen pages the estimate uses. Chosen pages unticked as not ordinary stay stored and
   shown, but they're left out of the estimate: as hand-picked pages they can't stand in for `mean_other`.
-- Projections assume future random pages split `p : 1 − p` with the current stratum spreads. Before any random
-  page exists they assume `p = 1`. They are capped at the pages left to draw.
-- Slots (`books.randomSlots`) are topped up automatically to `randomPagesForRecommended` (at least
-  `MIN_RANDOM_PAGES` before there's an estimate). "Suggest more" draws 4 extra.
+- Projections assume future random pages split `p : 1 − p` with the current stratum spreads, and recompute `p̃`
+  with them: `(x + p·k + 2)/(n_random + k + 4)` for k more pages. Before any random page exists they assume `p = 1`
+  and a blank `mean_oth`. They are capped at the pages left to draw.
+- The vocabulary projection is read off the growth curve at `totalWords / (mean words per sampled page)` sampled
+  pages, not at `pageCount`, so hand-picked full pages don't inflate it and it agrees with `wordsPerPage × pageCount`.
+- Slots (`books.randomSlots`) are topped up automatically toward `randomPagesForRecommended` (at least
+  `MIN_RANDOM_PAGES` before there's an estimate), at most `SLOT_BATCH` (10) open at a time and refilled as they're
+  photographed. The full count shows in the "N more to send, M for ±10%" line. A page awaiting OCR or its ordinary
+  tick can briefly make the estimate want hundreds of pages, and with the `p̃` term ±10% typically takes 30–50.
+  "Suggest more" draws 4 extra.
 - Readability is computed only for pages whose resolved language is `en` and aggregated only for English books.
   Pages counted before this change keep their stored scores until re-processed.
 - Sending is also blocked while any counted page carries an older `countingVersion` ("Re-process N pages…").
