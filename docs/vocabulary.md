@@ -1,16 +1,19 @@
 # Unique-word estimate
 
 Each book page shows an estimate of how many distinct words the whole book uses, from the pages you've
-photographed. It needs at least 4 processed pages and the book's page count from Book Tracker.
+photographed. It needs at least 4 processed pages containing words and the book's page count from Book Tracker.
+Blank scans remain in the word-count sample but do not enter the vocabulary fit.
 Code: `convex/vocabulary.ts` (math), `src/app/components/VocabularyCard.tsx` (card and chart).
 
 ## What the card shows
 
-- The projected unique words with its 95% range, words seen so far, and the current growth exponent.
-- Two charts on a shared page axis (log or linear): **unique words so far** (sampled points, fitted curve,
+- The projected unique words with its 95% range and words seen so far.
+- Two charts with independent linear/log controls: **unique words so far** (sampled points, fitted curve,
   dashed projection, and the 95% range as a bar at the last page) and **new unique words per page**.
-  Hovering either chart moves a crosshair on both.
-- The fitted equation, V(k) = eᵃ · k^(b + c·ln k), and fit measures:
+  The cumulative plot defaults to linear and the marginal plot to log. Each chart also has its own sample-detail
+  view. These controls must stay independent. Hovering or using arrow keys in either chart moves a crosshair on both.
+  The horizontal axis measures sampled-page equivalents, not printed page numbers; the projected region is shaded.
+- Collapsible model diagnostics contain the growth exponent, fitted equation, V(k) = eᵃ · k^(b + c·ln k), and fit measures:
   - **R² (log-log)** and **RMS / max residual**: how closely the curve follows the sampled points. These are
     near-perfect by construction, since the points are a smooth rarefied curve, so they say little about the
     extrapolation.
@@ -33,7 +36,9 @@ Code: `convex/vocabulary.ts` (math), `src/app/components/VocabularyCard.tsx` (ca
 3. **Growth curve.** log V = a + b·log k + c·(log k)², by least squares: Heaps' law with an exponent that
    may slow down. The local exponent b + 2c·log n is shown as the "growth exponent". Past the curve's peak,
    if it bends down, vocabulary is held flat.
-4. **Projection.** V(total pages).
+4. **Projection.** V(estimated book words / mean words per text-bearing sampled page). Without a word-count
+   estimate, use the book's printed page count. Blank scans still lower the book's word-count estimate, so they
+   affect the projection horizon even though they are excluded from the vocabulary fit.
 5. **95% range.** exp(log V ± 1.96·σ), where σ = max(0.72/√n, leave-one-page-out jackknife sd).
 
 ## Why not plain Heaps' law (V = K·k^β)?

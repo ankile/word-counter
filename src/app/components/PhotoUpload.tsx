@@ -1,105 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useUploadPages } from "../lib/useUploadPages";
+import { imageName, useUploadPages, type UploadFailure } from "../lib/useUploadPages";
 import { CameraIcon, PhotoIcon, SpinnerIcon } from "./icons";
 import { PageScanner } from "./PageScanner";
 
-const buttonClass =
-  "inline-flex items-center px-5 py-3 bg-brand-700 text-white text-sm font-medium rounded-lg cursor-pointer hover:bg-brand-800 transition-colors shadow-sm";
+const buttonClass = "inline-flex items-center px-5 py-3 bg-brand-700 text-white text-sm font-medium rounded-lg hover:bg-brand-800 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500";
 
-export function PhotoUpload({ bookId }: { bookId: Id<"books"> }) {
+export function PhotoUpload({ bookId, compact = false }: { bookId: Id<"books">; compact?: boolean }) {
   const uploadPages = useUploadPages(bookId);
-  // null when idle
+  const picker = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [failures, setFailures] = useState<UploadFailure[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [scanning, setScanning] = useState(false);
 
-  const handleUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-
+  const handleUpload = async (files: Blob[]) => {
+    if (files.length === 0 || progress) return;
+    setFailures([]);
     setProgress({ done: 0, total: files.length });
-    // Pages are numbered in selection order
-    await uploadPages(Array.from(files), () => setProgress((p) => p && { ...p, done: p.done + 1 }));
+    // Decoding and network failures are expected. Show them and restore the picker.
+    await uploadPages(files, () => setProgress((p) => p && { ...p, done: p.done + 1 })).then(
+      setFailures,
+      (error: Error) => setFailures(files.map((image) => ({ image, slot: undefined, message: error.message })))
+    );
     setProgress(null);
-  };
-
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleUpload(e.target.files);
-    e.target.value = "";
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    handleUpload(e.dataTransfer.files);
   };
 
   return (
     <div
-      onDrop={handleDrop}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setIsDragging(true);
-      }}
-      onDragLeave={(e) => {
-        e.preventDefault();
-        setIsDragging(false);
-      }}
-      className={`relative bg-white border-2 border-dashed rounded-xl p-8 text-center transition-all ${
-        isDragging
-          ? "border-brand-400 bg-brand-50"
-          : progress
-            ? "border-brand-300 bg-brand-50"
-            : "border-stone-200 hover:border-stone-300"
-      }`}
+      onDrop={(e) => { e.preventDefault(); setIsDragging(false); void handleUpload(Array.from(e.dataTransfer.files)); }}
+      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+      onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+      className={`bg-white border-2 border-dashed rounded-xl ${compact ? "p-4" : "p-8"} text-center ${isDragging ? "border-brand-400 bg-brand-50" : "border-stone-200"}`}
     >
       {scanning && <PageScanner bookId={bookId} onClose={() => setScanning(false)} />}
+      <input ref={picker} type="file" accept="image/*" multiple aria-label="Page photos"
+        onChange={(e) => { void handleUpload(Array.from(e.target.files!)); e.target.value = ""; }} className="hidden" />
       {progress ? (
-        <div className="space-y-4">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-brand-100">
-            <SpinnerIcon className="w-6 h-6 text-brand-600 animate-spin" />
-          </div>
-          <div>
-            <div className="text-lg font-medium text-stone-900">
-              Uploaded {progress.done} of {progress.total}
-            </div>
-            <div className="text-sm text-stone-500 mt-1">Please wait...</div>
-          </div>
+        <div className="space-y-3" role="status">
+          <SpinnerIcon className="w-6 h-6 text-brand-600 animate-spin mx-auto" />
+          <div className="font-medium text-stone-900">Uploaded {progress.done} of {progress.total}</div>
           <div className="max-w-xs mx-auto h-2 bg-stone-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand-700 rounded-full transition-all duration-300"
-              style={{ width: `${(progress.done / progress.total) * 100}%` }}
-            />
+            <div className="h-full bg-brand-700 transition-all" style={{ width: `${progress.done / progress.total * 100}%` }} />
           </div>
         </div>
       ) : (
         <>
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-stone-100 mb-4">
-            <PhotoIcon className="w-6 h-6 text-stone-400" />
-          </div>
-          <div className="text-stone-600 mb-4">
-            <span className="hidden sm:inline">
-              <span className="font-medium">Drop photos here</span> or click to browse
-            </span>
-            <span className="sm:hidden">Photograph a few pages to estimate the word count</span>
-          </div>
-          <div className="flex flex-wrap justify-center gap-3">
+          {!compact && <PhotoIcon className="w-8 h-8 text-stone-400 mx-auto mb-3" />}
+          <div className={`flex flex-wrap items-center justify-center gap-3 ${compact ? "" : "mb-3"}`}>
+            <span className="text-sm text-stone-600">{compact ? "Add more page photos" : "Drop photos here or choose files below"}</span>
             <button onClick={() => setScanning(true)} className={`${buttonClass} sm:hidden`}>
-              <CameraIcon className="w-4 h-4 mr-2" />
-              Scan Pages
+              <CameraIcon className="w-4 h-4 mr-2" />Scan Pages
             </button>
-            <label className={buttonClass}>
-              <input type="file" accept="image/*" multiple onChange={handleInput} className="hidden" />
-              <PhotoIcon className="w-4 h-4 mr-2" />
-              Choose Photos
-            </label>
+            <button onClick={() => picker.current!.click()} className={buttonClass}>
+              <PhotoIcon className="w-4 h-4 mr-2" />Choose Photos
+            </button>
           </div>
-          <p className="mt-4 text-sm text-stone-400">
-            <span className="sm:hidden">Scan Pages lets you snap page after page without leaving the camera</span>
-            <span className="hidden sm:inline">Supports JPG, PNG, HEIC • Multiple files allowed</span>
-          </p>
+          {!compact && <p className="text-xs text-stone-500">JPG, PNG and other browser-supported images. HEIC may need exporting as JPG. Multiple files allowed.</p>}
+          {failures.length > 0 && (
+            <div className="mt-3 rounded-lg bg-red-50 p-3 text-left text-sm text-red-700" role="alert">
+              <ul className="space-y-1">{failures.map((failure, i) => <li key={i}>{imageName(failure.image)}: {failure.message}</li>)}</ul>
+              <button onClick={() => void handleUpload(failures.map((f) => f.image))} className="mt-2 min-h-10 font-medium underline">Retry failed photos</button>
+            </div>
+          )}
         </>
       )}
     </div>

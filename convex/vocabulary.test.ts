@@ -71,6 +71,27 @@ describe("computeVocabularyStats", () => {
     expect(computeVocabularyStats(pages.slice(0, 4), 300)).not.toBeNull();
   });
 
+  test("blank scans cannot create a vocabulary fit, including a sample with too few text pages", () => {
+    expect(computeVocabularyStats(["", "", "", ""], 300, 0)).toBeNull();
+    expect(computeVocabularyStats(["123", "", ...pages.slice(0, 3)], 300)).toBeNull();
+  });
+
+  test("blank scans leave the text-bearing fit unchanged when projected to the same word count", () => {
+    const original = computeVocabularyStats(pages, 300, 72000)!;
+    const withBlanks = computeVocabularyStats([...pages, "", "123", ""], 300, 72000)!;
+    expect(withBlanks).toEqual(original);
+  });
+
+  test("identical text pages have a finite constant curve and diagnostics", () => {
+    const stats = computeVocabularyStats(new Array(4).fill("the cat sat on the mat"), 300, 1800)!;
+    expect(stats.seenUniqueWords).toBe(5);
+    expect(stats.projection!.uniqueWords).toBe(5);
+    expect(stats.fitQuality.r2).toBe(1);
+    expect(stats.fitQuality.rmsResidualPercent).toBe(0);
+    expect(stats.growthExponent).toBe(0);
+    expect(stats.curve.every(Number.isFinite)).toBe(true);
+  });
+
   test("reports what was seen, the growth curve, and a range around the projection", () => {
     const stats = computeVocabularyStats(pages, 300)!;
     expect(stats.seenUniqueWords).toBe(new Set(pages.flatMap(vocabularyTokens)).size);

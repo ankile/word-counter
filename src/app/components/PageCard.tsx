@@ -1,7 +1,8 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useEffect, useId, useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import type { BoundingBox, PageStatus } from "../../../convex/validators";
@@ -63,20 +64,33 @@ function OcrToggle({ active, onToggle, className }: { active: boolean; onToggle:
 }
 
 function Lightbox({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleEsc);
+    const element = dialog.current!;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement;
+    element.showModal();
+    closeButton.current!.focus();
     document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", handleEsc);
-      document.body.style.overflow = "";
+      element.close();
+      document.body.style.overflow = previousOverflow;
+      previousFocus.focus({ preventScroll: true });
     };
-  }, [onClose]);
+  }, []);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4" onClick={onClose}>
+    <dialog ref={dialog} aria-label="Page photo" onCancel={(e) => { e.preventDefault(); onClose(); }}
+      className="fixed inset-0 m-0 max-w-none max-h-none w-screen h-[100dvh] bg-black/95 open:flex items-center justify-center p-4"
+      onKeyDown={(e) => {
+        if (e.key !== "Tab") return;
+        e.preventDefault();
+        const buttons = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        buttons[(index + (e.shiftKey ? -1 : 1) + buttons.length) % buttons.length].focus();
+      }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
         className="relative max-w-5xl max-h-[90vh] w-full h-full flex items-center justify-center"
         onClick={(e) => e.stopPropagation()}
@@ -84,38 +98,62 @@ function Lightbox({ onClose, children }: { onClose: () => void; children: React.
         {children}
         <button
           onClick={onClose}
+          ref={closeButton}
           aria-label="Close"
           className="absolute top-4 right-4 p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
         >
           <CloseIcon className="w-6 h-6" />
         </button>
       </div>
-    </div>
+    </dialog>
   );
 }
 
 /** Printed page number of a hand-chosen page; optional, saved when the field loses focus. */
-function BookPageInput({ page }: { page: Page }) {
+function BookPageInput({ page, totalPages }: { page: Page; totalPages: number | undefined }) {
   const setBookPage = useMutation(api.pages.setBookPage);
+  const errorId = useId();
+  const [error, setError] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<"saving" | "saved" | null>(null);
   return (
-    <label className="flex items-center gap-2 text-xs text-stone-500 mb-3">
+    <div className="mb-3">
+    <label className="flex items-center gap-2 text-xs text-stone-500">
       Printed page
       <input
         type="number"
         min={1}
+        max={totalPages}
+        step={1}
+        disabled={saveState === "saving"}
+        aria-invalid={error !== null}
+        aria-describedby={error ? errorId : undefined}
         defaultValue={page.bookPage}
         placeholder="–"
+        onChange={() => { setError(null); setSaveState(null); }}
         onBlur={(e) => {
+          if (!e.target.validity.valid) {
+            setError(`Enter a whole page number from 1${totalPages === undefined ? "" : ` to ${totalPages}`}, or clear the field.`);
+            return;
+          }
           const bookPage = e.target.value === "" ? undefined : Number(e.target.value);
-          if (bookPage !== page.bookPage) void setBookPage({ id: page._id, bookPage });
+          if (bookPage !== page.bookPage) {
+            setSaveState("saving");
+            void setBookPage({ id: page._id, bookPage }).then(
+              () => setSaveState("saved"),
+              (error: Error) => { setError(error.message); setSaveState(null); }
+            );
+          }
         }}
         className="w-16 px-2 py-1 border border-stone-200 rounded-md text-stone-900"
       />
     </label>
+    {error && <p id={errorId} role="alert" className="text-xs text-red-700 mt-1">{error}</p>}
+    {saveState && <p role="status" className="text-xs text-stone-500 mt-1">{saveState === "saving" ? "Saving printed page…" : "Printed page saved"}</p>}
+    </div>
   );
 }
 
-export function PageCard({ page }: { page: Page }) {
+export function PageCard({ page, totalPages }: { page: Page; totalPages: number | undefined }) {
   const removePage = useMutation(api.pages.remove);
   const reprocessPage = useMutation(api.pages.reprocess);
   // Optimistic, so the checkbox flips on click rather than after the round trip
@@ -157,8 +195,10 @@ export function PageCard({ page }: { page: Page }) {
         <div className="aspect-[3/4] relative bg-stone-100">
           {page.imageUrl && (
             <>
-              {/* Plain <img>: the overlay needs the original image's pixel dimensions */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <button type="button" onClick={() => setShowLightbox(true)} aria-label={`View page ${page.pageNumber} photo`}
+                className="absolute inset-0 w-full h-full focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500">
+              {showOverlay ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={page.imageUrl}
                 alt={`Page ${page.pageNumber}`}
@@ -166,12 +206,14 @@ export function PageCard({ page }: { page: Page }) {
                 onLoad={(e) =>
                   setImageSize({ width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight })
                 }
-                onClick={() => setShowLightbox(true)}
               />
+              ) : <Image src={page.imageUrl} alt={`Page ${page.pageNumber}`} fill
+                sizes="(max-width: 639px) 50vw, (max-width: 767px) 33vw, 256px" className="object-contain" />}
               {overlay}
+              </button>
             </>
           )}
-          <div className="absolute top-3 left-3 flex flex-col items-start gap-1">
+          <div className="pointer-events-none absolute top-3 left-3 flex flex-col items-start gap-1">
             <div className="bg-stone-900/70 text-white text-xs font-medium px-2 py-1 rounded-md">Page {page.pageNumber}</div>
             <div
               className={`text-xs font-medium px-2 py-1 rounded-md ${
@@ -235,7 +277,7 @@ export function PageCard({ page }: { page: Page }) {
             </div>
           )}
 
-          {page.origin === "chosen" && <BookPageInput page={page} />}
+          {page.origin === "chosen" && <BookPageInput page={page} totalPages={totalPages} />}
 
           {page.status === "done" && page.readability && (
             <div className="flex items-center gap-3 text-xs text-stone-500 mb-3">
@@ -292,6 +334,7 @@ export function PageCard({ page }: { page: Page }) {
               src={page.imageUrl}
               alt={`Page ${page.pageNumber}`}
               className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              onLoad={(e) => setImageSize({ width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight })}
             />
             {overlay}
           </div>

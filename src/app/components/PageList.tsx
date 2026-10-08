@@ -5,7 +5,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { PageCard } from "./PageCard";
 
-export function PageList({ bookId }: { bookId: Id<"books"> }) {
+export function PageList({ bookId, totalPages }: { bookId: Id<"books">; totalPages: number | undefined }) {
   const pages = useQuery(api.pages.listByBook, { bookId });
 
   if (pages === undefined) {
@@ -19,7 +19,7 @@ export function PageList({ bookId }: { bookId: Id<"books"> }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
       {pages.map((page) => (
-        <PageCard key={page._id} page={page} />
+        <PageCard key={page._id} page={page} totalPages={totalPages} />
       ))}
     </div>
   );

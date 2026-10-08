@@ -8,7 +8,7 @@ import { drawPages, growSlots, openSlots, shrinkSlots, slotShortfall } from "./s
 import { averageReadability, computeBookEstimate, MIN_RANDOM_PAGES } from "./stats";
 import { COUNTING_VERSION } from "./textAnalysis";
 import { wordEstimatePayload } from "./validators";
-import { computeVocabularyStats } from "./vocabulary";
+import { computeVocabularyStats, vocabularyTokens } from "./vocabulary";
 
 function summarizePages(pages: Doc<"pages">[]) {
   const processed = pages.filter((p) => p.status === "done");
@@ -107,6 +107,7 @@ export const get = query({
       ...book,
       ...summarizePages(pages),
       resolvedLanguage: language,
+      vocabularyPageCount: processed.filter((p) => vocabularyTokens(p.extractedText!).length > 0).length,
       avgReadability: readability,
       estimate,
       openSlots,

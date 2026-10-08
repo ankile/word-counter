@@ -187,6 +187,8 @@ export function computeBookEstimate(counted: EstimatePage[], totalPages: number 
     projection = moments;
   }
 
+  // Zero-text scans cannot establish a precise whole-book estimate.
+  if (used.every((page) => page.wordCount === 0)) return null;
   const wordsPerPage = wordsPerPageOf(moments);
   const margin = marginWithMore(moments, 0);
   const marginAbsolute = margin * wordsPerPage;

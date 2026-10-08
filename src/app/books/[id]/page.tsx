@@ -60,7 +60,7 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
     { label: "Words (sampled)", value: book.totalWordCount.toLocaleString() },
     { label: "Pages sampled", value: book.pageCount },
     book.totalPages !== undefined && { label: "Total pages", value: book.totalPages },
-    book.avgWordsPerPage !== null && { label: "Avg/page", value: book.avgWordsPerPage },
+    book.avgWordsPerPage !== null && { label: "Sample avg/page", value: book.avgWordsPerPage },
   ].filter((stat) => stat !== false);
 
   const readability = book.avgReadability;
@@ -80,24 +80,18 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
           ))}
         </div>
 
-        <div className="mt-6">
-          <PhotoUpload bookId={bookId} />
-        </div>
+        <nav aria-label="Book sections" className="flex flex-wrap gap-x-4 gap-y-2 mt-5 text-sm font-medium text-brand-600">
+          {book.estimate && <a href="#estimate">Word estimate</a>}
+          {book.processedCount > 0 && <a href="#vocabulary">Vocabulary</a>}
+          <a href="#random-pages">Random pages</a>
+          <a href="#scanned-pages">Scanned pages</a>
+        </nav>
 
         {book.estimate && (
-          <div className="mt-6">
+          <div id="estimate" className="mt-6 scroll-mt-24">
             <SampleConfidence estimate={book.estimate} />
           </div>
         )}
-
-        <div className="mt-6">
-          <RandomPageSlots
-            bookId={bookId}
-            totalPages={book.totalPages}
-            openSlots={book.openSlots}
-            slotShortfall={book.slotShortfall}
-          />
-        </div>
 
         {book.trackerBookId && (
           <div className="mt-6">
@@ -105,9 +99,13 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
           </div>
         )}
 
+        <div className="mt-6">
+          <PhotoUpload bookId={bookId} compact={book.pageCount > 0} />
+        </div>
+
         {book.processedCount > 0 && (
-          <div className="mt-6">
-            <VocabularyCard stats={book.vocabulary} processedPages={book.processedCount} />
+          <div id="vocabulary" className="mt-6 scroll-mt-24">
+            <VocabularyCard stats={book.vocabulary} processedPages={book.processedCount} textPages={book.vocabularyPageCount} totalPages={book.totalPages} />
           </div>
         )}
 
@@ -141,9 +139,13 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
             </div>
           </div>
         )}
+        <div id="random-pages" className="mt-6 scroll-mt-24">
+          <RandomPageSlots bookId={bookId} totalPages={book.totalPages} openSlots={book.openSlots}
+            slotShortfall={book.slotShortfall} recommended={book.estimate?.meetsRecommended} />
+        </div>
       </div>
 
-      <section>
+      <section id="scanned-pages" className="scroll-mt-24">
         <h2 className="font-display text-xl font-semibold text-stone-900 mb-4">
           Pages
           {book.pageCount > 0 && (
@@ -152,7 +154,7 @@ export default function BookPage({ params }: PageProps<"/books/[id]">) {
             </span>
           )}
         </h2>
-        <PageList bookId={bookId} />
+        <PageList bookId={bookId} totalPages={book.totalPages} />
       </section>
 
       {!book.trackerBookId && (

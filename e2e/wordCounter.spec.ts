@@ -113,7 +113,45 @@ test("photographed pages are OCR'd into word counts and a book estimate", async 
   ).toBeVisible();
   // Vision detects English on these pages, so Flesch scores apply
   await expect(page.getByText("Readability Analysis")).toBeVisible();
-  await expect(page.getByText(/^Scan at least 4 pages to estimate the book's vocabulary \(2 so far\)\.$/)).toBeVisible();
+  await expect(page.getByText("Scan at least 4 pages containing text to estimate vocabulary (2 so far).", { exact: true })).toBeVisible();
+
+  // Invalid printed numbers never persist; valid numbers and clearing survive a reload.
+  const printedPage = page.getByLabel("Printed page").first();
+  for (const invalid of ["-5", "1.5", "256"]) {
+    await printedPage.fill(invalid);
+    await printedPage.press("Tab");
+    await expect(printedPage).toHaveAttribute("aria-invalid", "true");
+    await expect(pageCards(page).getByRole("alert")).toContainText("Enter a whole page number from 1 to 255");
+  }
+  await page.reload();
+  await expect(page.getByLabel("Printed page").first()).toHaveValue("");
+  await page.getByLabel("Printed page").first().fill("5");
+  await page.getByLabel("Printed page").first().press("Tab");
+  await expect(pageCards(page).getByRole("status")).toHaveText("Printed page saved");
+  await page.reload();
+  await expect(page.getByLabel("Printed page").first()).toHaveValue("5");
+  await page.getByLabel("Printed page").first().fill("");
+  await page.getByLabel("Printed page").first().press("Tab");
+  await expect(pageCards(page).getByRole("status")).toHaveText("Printed page saved");
+  await page.reload();
+  await expect(page.getByLabel("Printed page").first()).toHaveValue("");
+
+  // The original photo opens with the keyboard; modal focus stays inside and returns on Escape.
+  const thumbnail = page.getByRole("button", { name: "View page 1 photo" });
+  await expect(thumbnail.locator("img")).toHaveAttribute("loading", "lazy");
+  await expect(thumbnail.locator("img")).toHaveAttribute("src", /^\/_next\/image\?/);
+  await thumbnail.focus();
+  await thumbnail.press("Enter");
+  const photo = page.getByRole("dialog", { name: "Page photo" });
+  await expect(photo).toBeVisible();
+  await expect(photo.getByRole("button", { name: "Close", exact: true })).toBeFocused();
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("Tab");
+    expect(await photo.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(photo).toBeHidden();
+  await expect(thumbnail).toBeFocused();
 
   // Re-processing yields the same count
   await page.getByRole("button", { name: "Re-process" }).first().click();
@@ -124,7 +162,7 @@ test("photographed pages are OCR'd into word counts and a book estimate", async 
   await page.getByRole("link", { name: "Back to library" }).click();
   await page.getByRole("button", { name: "Sampled" }).click();
   const avg = Math.round((counts[0] + counts[1]) / 2);
-  await expect(bookRows(page)).toHaveText([new RegExp(`^Foundation.*${avg} words/page2/2 pages$`)]);
+  await expect(bookRows(page)).toHaveText([new RegExp(`^Foundation.*${avg} words/pageSample · 2/2 pages$`)]);
 
   // Deleting a page updates the book
   await page.getByRole("link", { name: /^Foundation/ }).click();
@@ -202,7 +240,65 @@ test("random pages, blank ones included, correct the hand-picked estimate", asyn
   await expect(slots).toHaveCount(SLOT_BATCH);
 });
 
-test("four pages give a unique-word estimate with a growth chart", async ({ page }) => {
+test("bad photos recover without losing good uploads or blocking random slots", async ({ page, isMobile }) => {
+  await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length);
+  await page.getByRole("link", { name: /^Foundation/ }).click();
+
+  // Both the main chooser and random-slot picker can be reached from the keyboard.
+  const chooser = page.getByRole("button", { name: "Choose Photos" });
+  await chooser.focus();
+  const fileChooser = page.waitForEvent("filechooser");
+  await chooser.press("Enter");
+  await (await fileChooser).setFiles([
+    { name: "broken.png", mimeType: "image/png", buffer: Buffer.from("not an image") },
+    { name: "good.png", mimeType: "image/png", buffer: readFileSync(PAGE_FILES[0]) },
+  ]);
+  await expect(page.locator("main").getByRole("alert")).toContainText("broken.png: This photo could not be read");
+  await expect(chooser).toBeEnabled();
+  await expect(page.getByText("Done", { exact: true })).toHaveCount(1, { timeout: 90_000 });
+  await page.getByRole("button", { name: "Retry failed photos" }).click();
+  await expect(page.locator("main").getByRole("alert")).toContainText("broken.png");
+  await expect(page.getByRole("article")).toHaveCount(1);
+
+  await page.getByLabel("Page photos", { exact: true }).setInputFiles({
+    name: "unreadable.heic", mimeType: "image/heic", buffer: Buffer.from("not an image"),
+  });
+  await expect(page.locator("main").getByRole("alert")).toContainText("Export the photo as JPG or PNG");
+  await expect(page.getByRole("button", { name: "Retry failed photos" })).toBeEnabled();
+
+  const randomCard = page.getByRole("region", { name: "Random pages" });
+  const picker = randomCard.locator("input[type=file]").first();
+  if (isMobile) {
+    // Mobile Safari's default Tab order skips non-text controls; external keyboard users can enable all controls.
+    await picker.focus();
+  } else {
+    await randomCard.getByRole("button", { name: "Can't photograph it" }).first().focus();
+    await page.keyboard.press("Shift+Tab");
+  }
+  await expect(picker).toBeFocused();
+  await picker.setInputFiles({ name: "broken-slot.png", mimeType: "image/png", buffer: Buffer.from("not an image") });
+  await expect(randomCard.getByRole("alert")).toContainText("broken-slot.png");
+  await expect(picker).toBeVisible();
+  await expect(randomCard.getByText("Uploading...", { exact: true })).toHaveCount(0);
+  await picker.setInputFiles(PAGE_FILES[1]);
+  await expect(page.getByText("Done", { exact: true })).toHaveCount(2, { timeout: 90_000 });
+  await expect(randomCard.getByRole("alert")).toHaveCount(0);
+});
+
+test("blank scans keep their counts without producing a false book or vocabulary estimate", async ({ page }) => {
+  await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length);
+  await page.getByRole("link", { name: /^Foundation/ }).click();
+  await page.getByLabel("Page photos", { exact: true }).setInputFiles([BLANK_FILE, BLANK_FILE, BLANK_FILE, BLANK_FILE]);
+  await expect(page.getByText("Done", { exact: true })).toHaveCount(4, { timeout: 90_000 });
+  await expect(page.getByText("0 words", { exact: true })).toHaveCount(4);
+  await expect(page.getByText(/No words were detected in these scans/)).toBeVisible();
+  await expect(page.getByRole("region", { name: "Words per page" })).toHaveCount(0);
+  await expect(page.getByRole("img", { name: /^Unique words so far/ })).toHaveCount(0);
+  await expect(page.getByText(/Add the book's page count/)).toHaveCount(0);
+  expect(await page.locator("main").innerText()).not.toContain("NaN");
+});
+
+test("four pages give a unique-word estimate with a growth chart", async ({ page }, testInfo) => {
   await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length);
   await page.getByRole("link", { name: /^Foundation/ }).click();
   await page.locator("input[type=file][multiple]").setInputFiles(PAGE_FILES);
@@ -217,8 +313,10 @@ test("four pages give a unique-word estimate with a growth chart", async ({ page
   await expect(card.getByText(/^95% range [\d,]+–[\d,]+ across all 255 pages$/)).toBeVisible();
 
   // Cumulative and marginal charts, the fitted equation, and fit-quality measures
-  await expect(card.getByRole("img", { name: /^Unique words so far: fitted over 4 sampled pages and projected to page 255$/ })).toBeVisible();
+  await expect(card.getByRole("img", { name: /^Unique words so far: fitted over 4 sampled pages and projected to 255 sampled-page equivalents$/ })).toBeVisible();
   await expect(card.getByRole("img", { name: /^New unique words per page: fitted over 4 sampled pages/ })).toBeVisible();
+  await expect(card.getByText(/^V\(k\) = [\d.]+ · k/)).toBeHidden();
+  await card.getByText("Model diagnostics", { exact: true }).click();
   await expect(card.getByText(/^V\(k\) = [\d.]+ · k/)).toBeVisible();
   for (const measure of ["R² (log-log)", "Residual, RMS / max", "Leave-one-page-out", "Error on 10 novels"]) {
     await expect(card.getByText(measure, { exact: true })).toBeVisible();
@@ -231,11 +329,40 @@ test("four pages give a unique-word estimate with a growth chart", async ({ page
   const marginalAxis = card.getByRole("group", { name: "New unique words per page: page axis" });
   await expect(cumulativeAxis.getByRole("button", { name: "Linear" })).toHaveAttribute("aria-pressed", "true");
   await expect(marginalAxis.getByRole("button", { name: "Log" })).toHaveAttribute("aria-pressed", "true");
-  await expect(card.getByText("Page", { exact: true })).toHaveCount(1);
-  await expect(card.getByText("Page (log scale)", { exact: true })).toHaveCount(1);
+  await expect(card.getByText("Sampled-page equivalents", { exact: true })).toHaveCount(1);
+  await expect(card.getByText("Sampled-page equivalents (log scale)", { exact: true })).toHaveCount(1);
   await cumulativeAxis.getByRole("button", { name: "Log" }).click();
-  await expect(card.getByText("Page (log scale)", { exact: true })).toHaveCount(2);
+  await expect(card.getByText("Sampled-page equivalents (log scale)", { exact: true })).toHaveCount(2);
   await expect(marginalAxis.getByRole("button", { name: "Log" })).toHaveAttribute("aria-pressed", "true");
+  await marginalAxis.getByRole("button", { name: "Linear" }).click();
+  await expect(cumulativeAxis.getByRole("button", { name: "Log" })).toHaveAttribute("aria-pressed", "true");
+  await cumulativeAxis.getByRole("button", { name: "Linear" }).click();
+  await marginalAxis.getByRole("button", { name: "Log" }).click();
+
+  // Sample detail expands the observed points without changing either plot's scale or the other plot's domain.
+  await card.getByRole("button", { name: "Sample detail", exact: true }).first().click();
+  const cumulativePlot = card.getByRole("img", { name: "Unique words so far: fitted over 4 sampled pages", exact: true });
+  const marginalPlot = card.getByRole("img", { name: /^New unique words per page:.*projected/ });
+  await expect(cumulativePlot).toBeVisible();
+  await expect(marginalPlot).toBeVisible();
+  await expect(cumulativeAxis.getByRole("button", { name: "Linear" })).toHaveAttribute("aria-pressed", "true");
+  await expect(marginalAxis.getByRole("button", { name: "Log" })).toHaveAttribute("aria-pressed", "true");
+  const positions = await cumulativePlot.locator("circle").evaluateAll((circles) => circles.map((circle) => Number(circle.getAttribute("cx"))));
+  const plotWidth = await cumulativePlot.evaluate((svg) => svg.getBoundingClientRect().width);
+  expect(positions.at(-1)! - positions[0]).toBeGreaterThan(plotWidth / 2);
+  await expect(cumulativePlot).toHaveCSS("touch-action", "pan-y");
+  await cumulativePlot.focus();
+  await cumulativePlot.press("End");
+  await expect(card.getByRole("status").first()).toContainText("4 sampled pages");
+  await cumulativePlot.press("ArrowLeft");
+  await expect(card.getByRole("status").first()).toContainText("3 sampled pages");
+  await cumulativePlot.press("Escape");
+  await expect(card.getByRole("status")).toHaveCount(0);
+  await card.getByRole("button", { name: "Whole book", exact: true }).click();
+  await card.getByText("Model diagnostics", { exact: true }).click();
+  await card.getByText("How is this estimated?", { exact: true }).click();
+  await card.screenshot({ path: testInfo.outputPath("vocabulary-charts.png") });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   await card.getByText("Show data").click();
   await expect(card.getByRole("row")).toHaveCount(1 + 4 + 1); // header, 4 sampled, projected
@@ -315,7 +442,7 @@ test("phones scan several pages back to back with the in-app camera", async ({ p
   await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length);
   await page.getByRole("link", { name: /^Foundation/ }).click();
   const scanButton = page.getByRole("button", { name: "Scan Pages" });
-  await expect(page.locator("label", { hasText: "Choose Photos" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose Photos" })).toBeVisible();
   if (!isMobile) {
     await expect(scanButton).toBeHidden();
     return;

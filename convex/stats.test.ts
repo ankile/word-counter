@@ -27,6 +27,10 @@ const evenSample = (spread: number) => {
 };
 
 describe("computeBookEstimate", () => {
+  test("zero-text samples never imply a precise whole-book count or a sendable estimate", () => {
+    expect(computeBookEstimate(chosen(0, 0, 0, 0), 200)).toBeNull();
+    expect(computeBookEstimate(random(false, ...new Array(8).fill(0)), 200)).toBeNull();
+  });
   test("needs two chosen pages, or three pages once random pages are in", () => {
     expect(computeBookEstimate(chosen(300), 200)).toBeNull();
     expect(computeBookEstimate([...chosen(300), ...random(true, 310)], 200)).toBeNull();

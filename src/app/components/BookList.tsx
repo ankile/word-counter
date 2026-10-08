@@ -86,6 +86,7 @@ export function BookList() {
             <button
               key={value}
               onClick={() => setFilter(value)}
+              aria-pressed={filter === value}
               className={`flex-1 px-3 py-1.5 rounded-md font-medium transition-colors ${
                 filter === value ? "bg-brand-700 text-white" : "text-stone-600 hover:bg-stone-50"
               }`}
@@ -121,7 +122,7 @@ export function BookList() {
                         {book.avgWordsPerPage !== null ? `${book.avgWordsPerPage} words/page` : "Processing"}
                       </div>
                       <div className="text-stone-500">
-                        {book.processedCount}/{book.pageCount} pages
+                        Sample · {book.processedCount}/{book.pageCount} pages
                       </div>
                     </>
                   ) : (

@@ -4,7 +4,7 @@ import { useMutation } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { useUploadPages } from "../lib/useUploadPages";
+import { imageName, useUploadPages } from "../lib/useUploadPages";
 import { CameraIcon, PhotoIcon } from "./icons";
 import { PageScanner } from "./PageScanner";
 
@@ -22,6 +22,7 @@ export function RandomPageSlots(props: {
   totalPages: number | undefined;
   openSlots: number[];
   slotShortfall: number;
+  recommended?: boolean;
 }) {
   const { bookId, totalPages, openSlots, slotShortfall } = props;
   const uploadPages = useUploadPages(bookId);
@@ -30,6 +31,7 @@ export function RandomPageSlots(props: {
   const replaceSlot = useMutation(api.books.replaceRandomSlot);
   const [uploading, setUploading] = useState<Set<number>>(new Set());
   const [scanning, setScanning] = useState(false);
+  const [errors, setErrors] = useState<Record<number, { file: File; message: string }>>({});
 
   // Keep enough pages suggested for the ±10% target as the estimate changes
   useEffect(() => {
@@ -47,7 +49,11 @@ export function RandomPageSlots(props: {
   const upload = async (slot: number, file: File | undefined) => {
     if (!file) return;
     setUploading((s) => new Set(s).add(slot));
-    await uploadPages([file], undefined, [slot]);
+    setErrors((s) => { const next = { ...s }; delete next[slot]; return next; });
+    await uploadPages([file], undefined, [slot]).then(
+      (failures) => { if (failures.length) setErrors((s) => ({ ...s, [slot]: { file, message: failures[0].message } })); },
+      (error: Error) => setErrors((s) => ({ ...s, [slot]: { file, message: error.message } }))
+    );
     setUploading((s) => new Set([...s].filter((x) => x !== slot)));
   };
 
@@ -65,6 +71,9 @@ export function RandomPageSlots(props: {
           Suggest more
         </button>
       </div>
+      {props.recommended && <p className="text-sm text-green-700 mb-3">The recommended precision is met. Additional photos are optional.</p>}
+      <details open={props.recommended ? undefined : true}>
+      <summary className="cursor-pointer text-sm font-medium text-brand-600 mb-3">{openSlots.length} {props.recommended ? "optional " : ""}pages to photograph</summary>
       <p className="text-sm text-stone-500 mb-4">
         Photograph each of these pages as it is, even if it&apos;s blank or a chapter opening. Short pages are marked
         not ordinary automatically; correct a page if that&apos;s wrong. Skipping such pages is exactly the bias they
@@ -84,13 +93,14 @@ export function RandomPageSlots(props: {
           </button>
           <ul className="divide-y divide-stone-100 border-y border-stone-100">
             {openSlots.map((slot) => (
-              <li key={slot} className="flex items-center justify-between gap-3 py-2">
+              <li key={slot} className="py-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm text-stone-900">Photograph page {slot}</span>
                 <span className="flex items-center gap-3">
                   {uploading.has(slot) ? (
                     <span className="text-xs text-stone-500">Uploading...</span>
                   ) : (
-                    <label className={`${smallButton} cursor-pointer text-brand-600 hover:text-brand-700 inline-flex items-center`}>
+                    <label className={`${smallButton} relative cursor-pointer text-brand-600 hover:text-brand-700 inline-flex items-center min-h-10 px-2 rounded focus-within:ring-2 focus-within:ring-brand-500`}>
                       <input
                         type="file"
                         accept="image/*"
@@ -99,7 +109,7 @@ export function RandomPageSlots(props: {
                           void upload(slot, e.target.files?.[0]);
                           e.target.value = "";
                         }}
-                        className="hidden"
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                       />
                       <PhotoIcon className="w-4 h-4 mr-1" />
                       Add photo
@@ -112,16 +122,22 @@ export function RandomPageSlots(props: {
                       }
                     }}
                     title="Only for a page that's missing or torn"
-                    className={`${smallButton} text-stone-400 hover:text-stone-600`}
+                    className={`${smallButton} min-h-10 text-stone-500 hover:text-stone-600`}
                   >
                     Can&apos;t photograph it
                   </button>
                 </span>
+                </div>
+                {errors[slot] && <div className="text-xs text-red-700 mt-1" role="alert">
+                  {imageName(errors[slot].file)}: {errors[slot].message}
+                  <button className="ml-2 min-h-10 underline" onClick={() => void upload(slot, errors[slot].file)}>Retry</button>
+                </div>}
               </li>
             ))}
           </ul>
         </>
       )}
+      </details>
     </section>
   );
 }

@@ -120,11 +120,19 @@ export const setOrdinary = mutation({
 });
 
 /** Record (or clear) the printed page number of a hand-chosen page. A random page's number is its slot. */
+export function validateBookPage(bookPage: number | undefined, totalPages: number | undefined) {
+  if (bookPage !== undefined && (!Number.isInteger(bookPage) || bookPage < 1 || (totalPages !== undefined && bookPage > totalPages))) {
+    throw new Error(`Printed page must be a whole number from 1${totalPages === undefined ? "" : ` to ${totalPages}`}`);
+  }
+}
+
 export const setBookPage = mutation({
   args: { id: v.id("pages"), bookPage: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const page = await requireOwnedPage(ctx, args.id);
     if (page.origin === "random") throw new Error("A random page's number is fixed by its slot");
+    const book = await requireOwnedBook(ctx, page.bookId);
+    validateBookPage(args.bookPage, book.totalPages);
     await ctx.db.patch("pages", args.id, { bookPage: args.bookPage });
   },
 });

@@ -62,7 +62,11 @@ export function PageScanner(props: { bookId: Id<"books">; slots?: number[]; onCl
       (blob) => {
         setLastShotUrl(URL.createObjectURL(blob!));
         uploadQueue.current = uploadQueue.current
-          .then(() => uploadPages([blob!], () => setUploaded((n) => n + 1), slot === undefined ? undefined : [slot]))
+          .then(async () => {
+            const failures = await uploadPages([blob!], undefined, slot === undefined ? undefined : [slot]);
+            if (failures.length) throw new Error(failures[0].message);
+            setUploaded((n) => n + 1);
+          })
           // Keep the queue going for later shots, but show that this one failed
           .catch((err: Error) => setUploadError(err.message));
       },

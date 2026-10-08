@@ -87,7 +87,10 @@ export const growthCurveMarginal = (curve: GrowthCurve, k: number) =>
 
 function fitPages(pages: Set<string>[]) {
   const rarefied = rarefactionCurve(pages);
-  return { rarefied, fit: fitGrowthCurve(rarefied.map((y, i) => ({ x: i + 1, y }))) };
+  const fit: GrowthCurve = rarefied.every((v) => v === rarefied[0])
+    ? [Math.log(rarefied[0]), 0, 0]
+    : fitGrowthCurve(rarefied.map((y, i) => ({ x: i + 1, y })));
+  return { rarefied, fit };
 }
 
 /** How well the curve matches the rarefied points it was fitted to (residuals in log space). */
@@ -98,7 +101,7 @@ export function fitQuality(curve: GrowthCurve, rarefied: number[]) {
   const ssRes = residuals.reduce((s, r) => s + r * r, 0);
   const ssTot = logs.reduce((s, y) => s + (y - mean) ** 2, 0);
   return {
-    r2: 1 - ssRes / ssTot,
+    r2: ssTot === 0 ? 1 : 1 - ssRes / ssTot,
     rmsResidualPercent: 100 * (Math.exp(Math.sqrt(ssRes / residuals.length)) - 1),
     maxResidualPercent: 100 * Math.max(...residuals.map((r) => Math.abs(Math.exp(r) - 1))),
   };
@@ -110,12 +113,14 @@ export function fitQuality(curve: GrowthCurve, rarefied: number[]) {
  * the projection, and it agrees with wordsPerPage × pageCount. Without a word estimate, to the page count.
  */
 export function computeVocabularyStats(pageTexts: string[], totalPages: number | undefined, totalWords?: number) {
-  const n = pageTexts.length;
+  // Blank scans still count in random sampling; fit vocabulary to pages containing words.
+  const textPages = pageTexts.map((text) => ({ text, words: new Set(vocabularyTokens(text)) })).filter((p) => p.words.size > 0);
+  const n = textPages.length;
   if (n < MIN_VOCABULARY_PAGES) return null;
 
-  const pages = pageTexts.map((text) => new Set(vocabularyTokens(text)));
+  const pages = textPages.map((p) => p.words);
   const { rarefied, fit } = fitPages(pages);
-  const sampledWordsPerPage = pageTexts.reduce((sum, text) => sum + countWords(text), 0) / n;
+  const sampledWordsPerPage = textPages.reduce((sum, p) => sum + countWords(p.text), 0) / n;
   const horizon = totalWords === undefined ? totalPages : Math.round(totalWords / sampledWordsPerPage);
 
   let projection = null;
