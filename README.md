@@ -16,6 +16,7 @@ A web app to photograph book pages, extract text via OCR, and count words. Desig
 - **Send to Book Tracker** - Publish a precise enough estimate (±20%, ±10% recommended) to the book's catalog edition
 - **Readability Metrics** - Flesch-Kincaid grade level and reading ease scores (English books only)
 - **Unique Words** - Estimates the book's total vocabulary by fitting the new-words-per-page curve and extending it to the last page, with a chart ([method and validation](docs/vocabulary.md))
+- **Compare Books** - The main page sets your measured books side by side: vocabulary growth on shared axes, word forms and new-word rate at a common 50,000-word length, forms in 1,000 random words, and Flesch–Kincaid grade ([method](docs/vocabulary.md#comparing-books))
 - **OCR Visualization** - Toggle bounding box overlay to see what was detected
 - **Lightbox View** - Click any thumbnail to view full-size with OCR overlay
 

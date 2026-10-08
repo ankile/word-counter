@@ -22,7 +22,7 @@ function summarizePages(pages: Doc<"pages">[]) {
 }
 
 /** The book's language: Book Tracker's if set, otherwise the one Vision detected on most pages ('' if none). */
-function resolveLanguage(book: Doc<"books">, processed: Doc<"pages">[]): string {
+export function resolveLanguage(book: Doc<"books">, processed: Doc<"pages">[]): string {
   if (book.language) return book.language;
   const votes = new Map<string, number>();
   for (const { language } of processed) if (language) votes.set(language, (votes.get(language) ?? 0) + 1);

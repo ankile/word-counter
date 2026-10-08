@@ -65,3 +65,24 @@ run about 5% low, because nearby pages share names and topics. Pages spread thro
 
 Reproduce with `node scripts/validateVocabulary.ts <dir of Gutenberg .txt files>`; the header of that
 script has the download command. Re-run it if you change the tokenizer, the curve or the range.
+
+## Comparing books
+
+The main page compares every book that has a word estimate and at least four photographed pages of text
+(`convex/compare.ts`, measures in `convex/difficulty.ts`). Whole-book totals favour short books: the longer a book,
+the more of its words are repeats, so its share of different forms falls even if its vocabulary is richer. The
+comparison therefore reads each book at the same point:
+
+- **Word forms in the first 50,000 words**: the fitted growth curve at 50,000 running words (the curve runs in
+  sampled pages; words per sampled text page converts it). Books shorter than that aren't measured there.
+- **New forms per 1,000 words at 50,000**: the curve's slope there, V(k)·(b + 2c·ln k)/k per page, over words per
+  page.
+- **Different forms in 1,000 random words**: Hurlbert's rarefaction on the photographed words alone, with nothing
+  projected. Samples under 1,000 words have no value.
+- **Flesch–Kincaid grade**, for English books.
+
+The charts put every book on shared axes of words read: cumulative forms (solid over the photographed text, dashed
+where projected to the book's estimated length) and new forms per 1,000 words on log axes. A book whose estimate rests
+on hand-picked pages only gets a hollow end point, because its whole-book numbers read high. Words are counted as
+written forms; `docs/lemma-vocabulary-plan.md` plans counting lemmas instead.
+

@@ -10,6 +10,8 @@
 
 import type * as auth from "../auth.js";
 import type * as books from "../books.js";
+import type * as compare from "../compare.js";
+import type * as difficulty from "../difficulty.js";
 import type * as migrations from "../migrations.js";
 import type * as ocr from "../ocr.js";
 import type * as ocrAction from "../ocrAction.js";
@@ -31,6 +33,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   books: typeof books;
+  compare: typeof compare;
+  difficulty: typeof difficulty;
   migrations: typeof migrations;
   ocr: typeof ocr;
   ocrAction: typeof ocrAction;

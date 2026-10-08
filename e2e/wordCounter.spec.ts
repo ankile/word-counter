@@ -369,6 +369,54 @@ test("four pages give a unique-word estimate with a growth chart", async ({ page
   await expect(card.getByRole("row").last()).toContainText("255 (projected)");
 });
 
+test("the main page compares books with enough photographed pages", async ({ page }, testInfo) => {
+  await signIn(page, ACCOUNT_A, EXPECTED_LIBRARY_A.length);
+  const comparison = page.getByRole("region", { name: "How your books compare" });
+  const photograph = async (title: string, files: string[]) => {
+    await page.getByRole("link", { name: new RegExp(`^${escape(title)}`) }).click();
+    await page.locator("input[type=file][multiple]").setInputFiles(files);
+    await expect(page.getByText("Done", { exact: true })).toHaveCount(files.length, { timeout: 90_000 });
+    await page.goto("/");
+  };
+
+  // One measured book has nothing to compare against
+  await photograph("Foundation", PAGE_FILES);
+  await expect(page.getByRole("heading", { name: "Your Books" })).toBeVisible();
+  await expect(comparison).toHaveCount(0);
+
+  // A second one with four pages joins it; one with three pages is too few for a vocabulary curve
+  await photograph("Pride and Prejudice", PAGE_FILES);
+  await photograph("Kafka on the Shore", PAGE_FILES.slice(0, 3));
+  await expect(comparison).toBeVisible();
+  const legend = comparison.getByRole("list", { name: "Books" });
+  await expect(legend.getByRole("listitem")).toHaveText(["Foundation", "Pride and Prejudice"]);
+  await expect(comparison.getByRole("img", { name: "Different word forms as the book goes on, one line per book" })).toBeVisible();
+  await expect(comparison.getByRole("img", { name: "New word forms per 1,000 words, one line per book" })).toBeVisible();
+  // Both books are under 50,000 words (255 and 432 pages of about 100 words), so the common-length measures say so
+  await expect(comparison.getByText("Under 50k words")).toHaveCount(4);
+  // Four pages of about 100 words can't be drawn from 1,000 words at a time
+  await expect(comparison.getByText("Fewer than 1,000 words photographed")).toHaveCount(2);
+  await comparison.getByText("All numbers").click();
+  const rows = comparison.getByRole("row");
+  await expect(rows).toHaveCount(3);
+  // Hand-picked pages only: the whole-book numbers are flagged
+  await expect(comparison.getByRole("rowheader", { name: "Foundation (hand-picked pages only)" })).toBeVisible();
+  // The table's projection matches the estimator on the OCR'd counts of the same four pages
+  const counts = await (async () => {
+    await page.getByRole("link", { name: /^Foundation/ }).click();
+    await expect(page.getByText("Done", { exact: true })).toHaveCount(4);
+    const words = await wordCountsOnPage(page);
+    await page.goto("/");
+    await comparison.getByText("All numbers").click();
+    return words;
+  })();
+  const estimate = computeBookEstimate(counts.map((wordCount) => ({ origin: "chosen", ordinary: null, wordCount })), 255)!;
+  await expect(comparison.getByRole("row", { name: /^Foundation/ }).getByRole("cell").nth(1))
+    .toHaveText(new RegExp(`^${estimate.totalWords!.toLocaleString("en-US")} `));
+
+  await comparison.screenshot({ path: testInfo.outputPath("comparison.png") });
+});
+
 test("changes in Book Tracker show up on the next load", async ({ page }) => {
   // Deletions use throwaway books: see addTemporaryTrackerBook for why fixtures are never deleted
   const unsampledId = await addTemporaryTrackerBook(ACCOUNT_A.uid, "Temporary Unsampled");

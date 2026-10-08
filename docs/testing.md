@@ -8,7 +8,7 @@ Three layers, fastest first:
 | `npm run test:e2e` | Playwright against `next dev` on :3100 + the Convex **dev** deployment | one-time setup below |
 | `E2E_BASE_URL=https://word-counter.ankile.com npm run test:e2e` | the same suite against **production** (prod Convex, real reCAPTCHA) | one-time setup below |
 
-Each e2e run covers desktop Chrome and iPhone 15 (WebKit), 17 tests in about 3 minutes (the Book Tracker callable check runs on desktop only). Failures leave
+Each e2e run covers desktop Chrome and iPhone 15 (WebKit), 23 tests in about 3 minutes (the Book Tracker callable check runs on desktop only). Failures leave
 screenshots and traces in `test-results/`; open the HTML report with `npx playwright show-report`, or a trace with
 `npx playwright show-trace test-results/<test>/trace.zip`.
 

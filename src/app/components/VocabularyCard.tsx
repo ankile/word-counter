@@ -23,7 +23,7 @@ const pct = (x: number) => (x < 1 ? x.toFixed(2) : x.toFixed(1));
 const fmtRate = (x: number) => (x < 10 ? x.toFixed(1) : fmt(x));
 
 /** Width of an element, tracked across resizes (so chart text renders at real pixel size). */
-function useWidth<T extends HTMLElement>() {
+export function useWidth<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -46,7 +46,7 @@ function curvePages(lastPage: number): number[] {
 }
 
 /** A round number at or above value, with tick step: 1, 2 or 5 × 10^k. */
-function niceScale(value: number, ticks: number) {
+export function niceScale(value: number, ticks: number) {
   const raw = value / ticks;
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 5, 10].map((m) => m * magnitude).find((s) => s >= raw)!;
