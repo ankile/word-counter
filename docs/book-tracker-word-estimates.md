@@ -61,6 +61,15 @@ where:
   full. It rests on one assumption: a hand-chosen ordinary page is as typical as a random ordinary page. That's
   reasonable when someone flips to arbitrary pages of running text.
 
+Which pages are ordinary is decided automatically unless the reader marks a page. A page holding under 75% of the
+book's median page (`SHORT_PAGE_SHARE`, once at least 3 pages are counted) is not ordinary; chapter openings and
+endings, blanks and illustrations fall well below a full page, which varies by about ±15%. The rule applies to
+hand-picked and random pages alike, so the ordinary stratum means the same thing in both. The reader can still tick or
+untick any page, and "Back to automatic" returns it to the rule. Before this, every page was created ticked and
+readers rarely unticked one: the first two books sent had 0 of 58 random pages marked, so `p` read 1. On The Wise
+Man's Fear the rule moves the estimate from 381.7 ±13.5% (p = 1) to 384.0 ±8.3% (p = 0.85), next to the plain mean
+of its random pages (386.8); thresholds from 0.7 to 0.8 give the same result.
+
 A sample with no random pages has no estimate of `p`. It gets method `chosen-pages`, is shown with a warning that it
 reads high, and can't be sent. A random sample with no hand-chosen pages also works, because then the formula reduces
 to the plain mean of the random pages.
@@ -267,6 +276,9 @@ W1–W8 are built. Where the spec left a choice open:
   photographed. The full count shows in the "N more to send, M for ±10%" line. A page awaiting OCR or its ordinary
   tick can briefly make the estimate want hundreds of pages, and with the `p̃` term ±10% typically takes 30–50.
   "Suggest more" draws 4 extra.
+- A page's stored `ordinary` is the reader's choice or `null` (automatic, the default for new pages).
+  `migrations:automaticOrdinary` turned the old ticked-by-default `true` into `null` and kept readers' unticks.
+  `pages.listByBook` reports how the estimate classifies each page (`countsAsOrdinary`) and the short-page line.
 - Readability is computed only for pages whose resolved language is `en` and aggregated only for English books.
   Pages counted before this change keep their stored scores until re-processed.
 - Sending is also blocked while any counted page carries an older `countingVersion` ("Re-process N pages…").

@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireOwnedBook, requireOwnedPage, requireUserId } from "./auth";
 import { openSlots } from "./sampling";
+import { resolveOrdinary, shortPageBelow } from "./stats";
 
 /** All pages of a book, ordered by page number. */
 export async function pagesForBook(ctx: QueryCtx, bookId: Id<"books">) {
@@ -37,8 +38,19 @@ export const listByBook = query({
   handler: async (ctx, args) => {
     await requireOwnedBook(ctx, args.bookId);
     const pages = await pagesForBook(ctx, args.bookId);
+    // How the estimate classifies each counted page; a page not counted yet is ordinary unless the reader said not
+    const counted = pages.filter((p) => p.status === "done");
+    const resolved = new Map(
+      resolveOrdinary(counted.map((p) => ({ ...p, wordCount: p.wordCount! }))).map((p) => [p._id, p])
+    );
+    const shortBelow = shortPageBelow(counted.map((p) => p.wordCount!));
     return await Promise.all(
-      pages.map(async (page) => ({ ...page, imageUrl: await ctx.storage.getUrl(page.imageStorageId) }))
+      pages.map(async (page) => ({
+        ...page,
+        imageUrl: await ctx.storage.getUrl(page.imageStorageId),
+        countsAsOrdinary: resolved.get(page._id)?.ordinary ?? page.ordinary ?? true,
+        shortBelow,
+      }))
     );
   },
 });
@@ -79,7 +91,7 @@ export const createMany = mutation({
         pageNumber: firstPageNumber + i,
         origin: args.slots ? "random" : "chosen",
         bookPage: args.slots?.[i],
-        ordinary: true,
+        ordinary: null,
         status: "pending",
         createdAt: Date.now(),
       });
@@ -98,9 +110,9 @@ export const reprocess = mutation({
   },
 });
 
-/** Mark whether a page is an ordinary page of running text. */
+/** Mark whether a page is an ordinary page of running text, or (null) leave it to the word-count rule. */
 export const setOrdinary = mutation({
-  args: { id: v.id("pages"), ordinary: v.boolean() },
+  args: { id: v.id("pages"), ordinary: v.union(v.boolean(), v.null()) },
   handler: async (ctx, args) => {
     await requireOwnedPage(ctx, args.id);
     await ctx.db.patch("pages", args.id, { ordinary: args.ordinary });

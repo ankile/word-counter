@@ -7,7 +7,9 @@ import type { Doc } from "../../../convex/_generated/dataModel";
 import type { BoundingBox, PageStatus } from "../../../convex/validators";
 import { CloseIcon } from "./icons";
 
-type Page = Doc<"pages"> & { imageUrl: string | null };
+// countsAsOrdinary is how the estimate classifies the page; shortBelow is the word count under which an automatic
+// page counts as not ordinary (null while too few pages are counted to tell)
+type Page = Doc<"pages"> & { imageUrl: string | null; countsAsOrdinary: boolean; shortBelow: number | null };
 type Size = { width: number; height: number };
 
 const statusConfig: Record<PageStatus, { className: string; label: string }> = {
@@ -120,7 +122,13 @@ export function PageCard({ page }: { page: Page }) {
   const setOrdinary = useMutation(api.pages.setOrdinary).withOptimisticUpdate((store, { id, ordinary }) => {
     const args = { bookId: page.bookId };
     const pages = store.getQuery(api.pages.listByBook, args);
-    if (pages) store.setQuery(api.pages.listByBook, args, pages.map((p) => (p._id === id ? { ...p, ordinary } : p)));
+    if (!pages) return;
+    const automatic = (p: Page) => p.shortBelow === null || (p.wordCount ?? 0) >= p.shortBelow;
+    store.setQuery(
+      api.pages.listByBook,
+      args,
+      pages.map((p) => (p._id === id ? { ...p, ordinary, countsAsOrdinary: ordinary ?? automatic(p) } : p))
+    );
   });
   const [showText, setShowText] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -171,7 +179,7 @@ export function PageCard({ page }: { page: Page }) {
               }`}
             >
               {page.origin === "random" ? `Random · p. ${page.bookPage}` : "Hand-picked"}
-              {!page.ordinary && " · not ordinary"}
+              {!page.countsAsOrdinary && " · not ordinary"}
             </div>
           </div>
           {hasBoxes && (
@@ -195,19 +203,36 @@ export function PageCard({ page }: { page: Page }) {
           </div>
 
           {page.status === "done" && (
-            <label
-              className={`flex items-center gap-2 text-xs mb-3 ${
-                page.origin === "random" ? "font-medium text-stone-900" : "text-stone-500"
-              }`}
-              title="A full page of running text: no chapter start or end, illustration, table or blank space"
-            >
-              <input
-                type="checkbox"
-                checked={page.ordinary}
-                onChange={(e) => setOrdinary({ id: page._id, ordinary: e.target.checked })}
-              />
-              Ordinary page of text
-            </label>
+            <div className="mb-3">
+              <label
+                className={`flex items-center gap-2 text-xs ${
+                  page.origin === "random" ? "font-medium text-stone-900" : "text-stone-500"
+                }`}
+                title="A full page of running text: no chapter start or end, illustration, table or blank space"
+              >
+                <input
+                  type="checkbox"
+                  checked={page.countsAsOrdinary}
+                  onChange={(e) => setOrdinary({ id: page._id, ordinary: e.target.checked })}
+                />
+                Ordinary page of text
+              </label>
+              {page.ordinary === null ? (
+                <p className="text-xs text-stone-400 mt-1 ml-5">
+                  {page.countsAsOrdinary || page.shortBelow === null
+                    ? "Automatic"
+                    : `Automatic: short page, under ${Math.round(page.shortBelow).toLocaleString()} words`}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setOrdinary({ id: page._id, ordinary: null })}
+                  className="text-xs text-brand-600 hover:text-brand-700 mt-1 ml-5"
+                >
+                  Back to automatic
+                </button>
+              )}
+            </div>
           )}
 
           {page.origin === "chosen" && <BookPageInput page={page} />}

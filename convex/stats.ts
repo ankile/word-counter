@@ -41,8 +41,40 @@ const tCritical95 = (df: number) => T_95[df - 1] ?? Z_95;
 
 export interface EstimatePage {
   origin: PageOrigin;
-  ordinary: boolean;
+  // The reader's call, or null to decide automatically (resolveOrdinary)
+  ordinary: boolean | null;
   wordCount: number;
+}
+
+// A page left to automatic counts as ordinary unless it holds under this share of the book's median page: chapter
+// openings and endings, blanks and illustrations fall well below a full page, which varies by about ±15%
+export const SHORT_PAGE_SHARE = 0.75;
+// Fewer counted pages than this say too little about a full page, so every automatic page counts as ordinary
+export const MIN_PAGES_FOR_AUTO = 3;
+
+const median = (xs: number[]) => {
+  const sorted = [...xs].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+};
+
+/** Words below which an automatic page counts as not ordinary, or null while there are too few pages to tell. */
+export function shortPageBelow(wordCounts: number[]): number | null {
+  return wordCounts.length < MIN_PAGES_FOR_AUTO ? null : SHORT_PAGE_SHARE * median(wordCounts);
+}
+
+/**
+ * Whether each counted page is ordinary: the reader's choice where they made one, otherwise automatic. Automatic
+ * classification applies the same word-count rule to hand-picked and random pages, so the ordinary stratum means the
+ * same thing in both, which is what lets the hand-picked pages stand in for its random members.
+ */
+export function resolveOrdinary<P extends EstimatePage>(pages: P[]): (P & { ordinary: boolean; ordinaryAuto: boolean })[] {
+  const below = shortPageBelow(pages.map((p) => p.wordCount));
+  return pages.map((p) => ({
+    ...p,
+    ordinary: p.ordinary ?? (below === null || p.wordCount >= below),
+    ordinaryAuto: p.ordinary === null,
+  }));
 }
 
 /** Stratum means and variances; with p = 1 and no other pages it is a plain mean of the ordinary pages. */
@@ -95,16 +127,17 @@ export type EstimateMethod = "random-pages" | "corrected-chosen" | "chosen-pages
  *   wordsPerPage = p · mean_ordinary + (1 − p) · mean_other
  *
  * p (the share of ordinary pages) and mean_other come from random pages only; mean_ordinary pools hand-chosen
- * and random ordinary pages. Hand-chosen pages that aren't ordinary have no unbiased place in the estimate and
+ * and random ordinary pages. Pages the reader hasn't classified are classified by resolveOrdinary. Hand-chosen pages that aren't ordinary have no unbiased place in the estimate and
  * are left out. Without random pages the plain mean of the chosen pages is reported, which reads high
  * because blanks, chapter openings and illustrations are missing from it.
  *
  * Returns null until there are enough pages for a 95% interval (2 chosen, or 3 once random pages are in).
  */
-export function computeBookEstimate(pages: EstimatePage[], totalPages: number | undefined) {
+export function computeBookEstimate(counted: EstimatePage[], totalPages: number | undefined) {
+  const pages = resolveOrdinary(counted);
   const random = pages.filter((p) => p.origin === "random");
   const chosen = pages.filter((p) => p.origin === "chosen");
-  const words = (ps: EstimatePage[]) => ps.map((p) => p.wordCount);
+  const words = (ps: { wordCount: number }[]) => ps.map((p) => p.wordCount);
   // Pages a random draw could still land on
   const maxK = (totalPages ?? Infinity) - random.length;
 

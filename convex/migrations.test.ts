@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 import type { Doc, Id } from "./_generated/dataModel";
-import { backfilledPageFields } from "./migrations";
+import { automaticOrdinaryFields, backfilledPageFields } from "./migrations";
 
 // A page as stored before origin/ordinary existed
 const oldPage = {
@@ -17,7 +17,7 @@ const oldPage = {
 
 test("backfill makes existing pages chosen and ordinary and keeps their counts", () => {
   const fields = backfilledPageFields(oldPage);
-  expect(fields).toEqual({ origin: "chosen", ordinary: true, countingVersion: 1 });
+  expect(fields).toEqual({ origin: "chosen", ordinary: null, countingVersion: 1 });
   const migrated = { ...oldPage, ...fields };
   expect(migrated.wordCount).toBe(3);
   expect(migrated.extractedText).toBe("Some words here");
@@ -29,6 +29,13 @@ test("backfill is idempotent and leaves later values alone", () => {
   // Pages without a count get no counting version
   expect(backfilledPageFields({ ...oldPage, status: "error", wordCount: undefined })).toEqual({
     origin: "chosen",
-    ordinary: true,
+    ordinary: null,
   });
+});
+
+test("the old ticked-by-default ordinary goes automatic; a reader's untick stays", () => {
+  const page = (ordinary: boolean | null) => ({ ...oldPage, origin: "random", ordinary }) as Doc<"pages">;
+  expect(automaticOrdinaryFields(page(true))).toEqual({ ordinary: null });
+  expect(automaticOrdinaryFields(page(false))).toEqual({});
+  expect(automaticOrdinaryFields(page(null))).toEqual({});
 });

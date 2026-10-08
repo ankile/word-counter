@@ -156,8 +156,16 @@ test("random pages, blank ones included, correct the hand-picked estimate", asyn
 
   const blank = page.getByRole("article").filter({ hasText: new RegExp(`Random · p\\. ${slotPages[3]}(?!\\d)`) });
   await expect(blank.getByText("0 words", { exact: true })).toBeVisible();
-  await blank.getByLabel("Ordinary page of text").uncheck();
+  // Nobody unticks it: a page this far under the book's typical page counts as not ordinary on its own
   await expect(blank.getByText(/not ordinary/)).toBeVisible();
+  await expect(blank.getByText(/^Automatic: short page, under [\d,]+ words$/)).toBeVisible();
+  await expect(blank.getByLabel("Ordinary page of text")).not.toBeChecked();
+  // The reader can overrule the rule and hand the page back to it
+  await blank.getByLabel("Ordinary page of text").check();
+  await expect(blank.getByText(/not ordinary/)).toHaveCount(0);
+  await blank.getByRole("button", { name: "Back to automatic" }).click();
+  await expect(blank.getByText(/not ordinary/)).toBeVisible();
+  await expect(blank.getByRole("button", { name: "Back to automatic" })).toHaveCount(0);
 
   // The app shows the stratified estimate on the counts it OCR'd. Uploads run concurrently, so a random page can
   // be numbered before the hand-picked ones: read each card's origin and ordinary flag from the card itself
