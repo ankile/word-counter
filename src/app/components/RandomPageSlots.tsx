@@ -66,8 +66,9 @@ export function RandomPageSlots(props: {
         </button>
       </div>
       <p className="text-sm text-stone-500 mb-4">
-        Photograph each of these pages as it is, even if it&apos;s blank or a chapter opening, then mark whether
-        it&apos;s an ordinary page of text. Skipping such pages is exactly the bias they correct.
+        Photograph each of these pages as it is, even if it&apos;s blank or a chapter opening. Short pages are marked
+        not ordinary automatically; correct a page if that&apos;s wrong. Skipping such pages is exactly the bias they
+        correct.
       </p>
 
       {openSlots.length === 0 ? (

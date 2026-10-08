@@ -8,13 +8,14 @@ import { queueOcr } from "./pages";
 import { COUNTING_VERSION } from "./textAnalysis";
 
 /**
- * Fields a page from before random sampling gets: every one of them was picked by hand, and counts as an ordinary
- * page until the owner unticks it. Pages already counted were counted under version 1 of the counting rule.
+ * Fields a page from before random sampling gets: every one of them was picked by hand, and is left to the automatic
+ * ordinary-page rule until the owner marks it. Pages already counted were counted under version 1 of the counting
+ * rule.
  */
 export function backfilledPageFields(page: Doc<"pages">): Partial<Doc<"pages">> {
   return {
     ...(page.origin === undefined && { origin: "chosen" as const }),
-    ...(page.ordinary === undefined && { ordinary: true }),
+    ...(page.ordinary === undefined && { ordinary: null }),
     ...(page.status === "done" && page.countingVersion === undefined && { countingVersion: 1 }),
   };
 }
@@ -26,6 +27,30 @@ export const backfillPageSampling = internalMutation({
     let patched = 0;
     for (const page of await ctx.db.query("pages").collect()) {
       const fields = backfilledPageFields(page);
+      if (Object.keys(fields).length > 0) {
+        await ctx.db.patch("pages", page._id, fields);
+        patched++;
+      }
+    }
+    return patched;
+  },
+});
+
+/**
+ * Before automatic classification every page was created ticked as ordinary, so a stored true is the old default, not
+ * a reader's choice: it becomes null (automatic). A false was the reader unticking a page and stays.
+ */
+export function automaticOrdinaryFields(page: Doc<"pages">): Partial<Doc<"pages">> {
+  return page.ordinary === true ? { ordinary: null } : {};
+}
+
+/** Hand pages still carrying the old default to the automatic rule. Idempotent. */
+export const automaticOrdinary = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let patched = 0;
+    for (const page of await ctx.db.query("pages").collect()) {
+      const fields = automaticOrdinaryFields(page);
       if (Object.keys(fields).length > 0) {
         await ctx.db.patch("pages", page._id, fields);
         patched++;

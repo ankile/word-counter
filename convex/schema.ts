@@ -39,8 +39,9 @@ export default defineSchema({
     origin: pageOrigin,
     // Printed page number; always set for random pages
     bookPage: v.optional(v.number()),
-    // A full page of running text (no chapter start or end, illustration, table or blank space)
-    ordinary: v.boolean(),
+    // A full page of running text (no chapter start or end, illustration, table or blank space), as the reader
+    // marked it; null leaves it to the word-count rule (stats.ts resolveOrdinary)
+    ordinary: v.union(v.boolean(), v.null()),
     extractedText: v.optional(v.string()),
     wordCount: v.optional(v.number()),
     // COUNTING_VERSION of the rule that produced wordCount

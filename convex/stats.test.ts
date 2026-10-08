@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { averageReadability, computeBookEstimate, MIN_RANDOM_PAGES, type EstimatePage } from "./stats";
+import {
+  averageReadability,
+  computeBookEstimate,
+  MIN_RANDOM_PAGES,
+  resolveOrdinary,
+  shortPageBelow,
+  type EstimatePage,
+} from "./stats";
 import { analyzeText } from "./textAnalysis";
 
 const chosen = (...counts: number[]): EstimatePage[] =>
@@ -155,4 +162,47 @@ test("averageReadability averages metrics and derives level from mean ease", () 
   const b = analyzeText("Notwithstanding considerable organizational complexity, institutional transformation proceeded.");
   const avg = averageReadability([a, b])!;
   expect(avg.fleschReadingEase).toBeCloseTo((a.fleschReadingEase + b.fleschReadingEase) / 2, 1);
+});
+
+describe("automatic ordinary pages", () => {
+  const auto = (origin: "chosen" | "random", ...counts: number[]): EstimatePage[] =>
+    counts.map((wordCount) => ({ origin, ordinary: null, wordCount }));
+
+  test("an automatic page under three quarters of the median page is not ordinary", () => {
+    // Median 390, so the line is 292.5 words: 293 is over it, 292 and the blank page are under
+    const pages = auto("random", 400, 410, 390, 405, 292, 293, 0);
+    expect(shortPageBelow(pages.map((p) => p.wordCount))).toBe(292.5);
+    const resolved = resolveOrdinary(pages);
+    expect(resolved.map((p) => p.ordinary)).toEqual([true, true, true, true, false, true, false]);
+    expect(resolved.map((p) => p.ordinaryAuto)).toEqual(pages.map(() => true));
+  });
+
+  test("the reader's choice wins both ways and stays marked as theirs", () => {
+    const pages: EstimatePage[] = [
+      ...auto("random", 400, 400, 400),
+      { origin: "random", ordinary: true, wordCount: 50 },
+      { origin: "random", ordinary: false, wordCount: 400 },
+    ];
+    const resolved = resolveOrdinary(pages);
+    expect(resolved.slice(3).map((p) => [p.ordinary, p.ordinaryAuto])).toEqual([[true, false], [false, false]]);
+  });
+
+  test("with fewer than three counted pages every automatic page is ordinary", () => {
+    expect(shortPageBelow([400, 0])).toBeNull();
+    expect(resolveOrdinary(auto("random", 400, 0)).map((p) => p.ordinary)).toEqual([true, true]);
+  });
+
+  test("the rule classifies hand-picked and random pages alike, so short pages leave mean_ordinary", () => {
+    // The Wise Man's Fear's shape: full pages near 400, a few short hand-picked and random ones, none unticked
+    const pages = [...auto("chosen", 405, 410, 395, 240, 400), ...auto("random", 400, 410, 237, 390, 405, 242, 398, 402)];
+    const estimate = computeBookEstimate(pages, 1108)!;
+    // Two of eight random pages are short, and the short hand-picked page drops out of the estimate
+    expect(estimate.ordinaryShare).toBe(0.75);
+    expect(estimate.chosenPages).toBe(4);
+    // Left automatic, the estimate equals one where the reader unticked exactly the short pages
+    const marked = pages.map((p) => ({ ...p, ordinary: p.wordCount >= 300 }));
+    expect(computeBookEstimate(marked, 1108)).toEqual(estimate);
+    // Everything ticked ordinary (the old default) claims p = 1 instead
+    expect(computeBookEstimate(pages.map((p) => ({ ...p, ordinary: true })), 1108)!.ordinaryShare).toBe(1);
+  });
 });
